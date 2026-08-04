@@ -9,14 +9,14 @@ import slotsRouter from "./routes/slots";
 import enemyScoutsRouter from "./routes/enemyScouts";
 import { HttpError } from "./asyncHandler";
 
-// Resolve .env relative to this file (server/src/index.ts -> server/.env),
-// so it loads correctly regardless of the working directory nodemon/ts-node
-// was launched from (this trips people up a lot on Windows).
+// Only relevant for local dev — on Vercel, env vars come from the dashboard,
+// not a .env file, so this quietly no-ops in production.
 const envPath = path.resolve(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 const PORT = Number(process.env.PORT ?? 4000);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
+const IS_VERCEL = process.env.VERCEL === "1";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -24,8 +24,10 @@ function requireEnv(name: string): string {
     const envExists = fs.existsSync(envPath);
     throw new Error(
       `Missing required environment variable ${name}.\n` +
-        `Looked for it in: ${envPath} (file ${envExists ? "exists" : "was NOT found"}).\n` +
-        `Create server/.env (copy server/.env.example) and set ${name} there — for Atlas this is your "mongodb+srv://..." connection string.`
+        (IS_VERCEL
+          ? `Set it under Vercel → Project → Settings → Environment Variables.`
+          : `Looked for it in: ${envPath} (file ${envExists ? "exists" : "was NOT found"}).\n` +
+            `Create server/.env (copy server/.env.example) and set ${name} there — for Atlas this is your "mongodb+srv://..." connection string.`)
     );
   }
   return value;
@@ -36,6 +38,17 @@ const app = express();
 
 app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.json());
+
+const dbReady = connectDB(MONGODB_URI);
+
+app.use(async (_req: Request, _res: Response, next: NextFunction) => {
+  try {
+    await dbReady;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
@@ -54,22 +67,13 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next: NextFunction) 
     res.status(err.status).json({ error: err.message });
     return;
   }
-  // eslint-disable-next-line no-console
-  console.error(err);
   res.status(500).json({ error: "Internal server error" });
 };
 app.use(errorHandler);
 
-async function main(): Promise<void> {
-  await connectDB(MONGODB_URI);
-  app.listen(PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`[server] listening on http://localhost:${PORT}`);
-  });
+
+if (!IS_VERCEL) {
+  app.listen(PORT);
 }
 
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error("[server] failed to start", err);
-  process.exit(1);
-});
+export default app;
