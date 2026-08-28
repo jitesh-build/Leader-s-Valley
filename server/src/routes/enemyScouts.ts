@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import { EnemyScout } from "../models/EnemyScout";
 import { asyncHandler, HttpError } from "../asyncHandler";
+import { emitToWar } from "../socket";
 
 const router = Router();
 
@@ -44,6 +45,9 @@ router.patch(
       { new: true }
     );
     if (!scout) throw new HttpError(404, "Enemy base not found for this war");
+
+    emitToWar(warId, "scout:updated", scout);
+    
     res.json(scout);
   })
 );

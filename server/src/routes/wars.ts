@@ -157,6 +157,7 @@ import { Slot } from "../models/Slot";
 import { EnemyScout } from "../models/EnemyScout";
 import { WAR_MODE_SIZES, isWarMode } from "../types/warModes";
 import { asyncHandler, HttpError } from "../asyncHandler";
+import { emitToWar, emitToWarsList } from "../socket";
 
 const router = Router();
 
@@ -225,6 +226,8 @@ router.post(
     }));
     await Promise.all([Slot.insertMany(slotDocs), EnemyScout.insertMany(scoutDocs)]);
 
+    emitToWarsList("war:created", war);
+
     res.status(201).json(war);
   })
 );
@@ -288,6 +291,10 @@ router.patch(
 
     const war = await War.findByIdAndUpdate(id, update, { new: true });
     if (!war) throw new HttpError(404, "War not found");
+
+    emitToWarsList("war:updated", war);
+    emitToWar(id, "war:updated", war);
+
     res.json(war);
   })
 );
@@ -300,6 +307,10 @@ router.delete(
     const war = await War.findByIdAndDelete(id);
     if (!war) throw new HttpError(404, "War not found");
     await Promise.all([Slot.deleteMany({ warId: war._id }), EnemyScout.deleteMany({ warId: war._id })]);
+
+    emitToWarsList("war:deleted", { warId: id });
+    emitToWar(id, "war:deleted", { warId: id });
+    
     res.status(204).send();
   })
 );

@@ -89,6 +89,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
+import { socket } from "../lib/socket";
 import type { EnemyScout, Slot, StarCount, War, WarSummary } from "../types";
 
 interface WarBoardState {
@@ -117,7 +118,12 @@ function computeSummary(war: War, slots: Slot[]): WarSummary {
   };
 }
 
-export function useWarBoard(warId: string | null): {
+export function useWarBoard(
+  warId: string | null,
+  /** Fires if another client deletes the war currently being viewed, so the
+   *  caller (App) can clear the selection and refetch the war list. */
+  onWarDeletedRemotely?: () => void
+): {
   state: WarBoardState;
   refetch: () => Promise<void>;
   updateSlot: (
@@ -135,8 +141,9 @@ export function useWarBoard(warId: string | null): {
     error: null,
   });
 
-  // Kept in sync with state so mutation handlers can read/merge the *current*
-  // slots/scouts/war synchronously, without waiting on a React re-render.
+  // Kept in sync with state so mutation handlers (local AND remote/socket)
+  // can read/merge the *current* slots/scouts synchronously, without
+  // waiting on a React re-render.
   const slotsRef = useRef<Slot[]>([]);
   const enemyScoutsRef = useRef<EnemyScout[]>([]);
 
@@ -144,6 +151,17 @@ export function useWarBoard(warId: string | null): {
     slotsRef.current = state.slots;
     enemyScoutsRef.current = state.enemyScouts;
   }, [state.slots, state.enemyScouts]);
+
+  // The caller (App) passes an inline callback that's a new function
+  // reference on every render. Stash it in a ref so the socket-subscription
+  // effect below can call the *latest* version without needing it in its
+  // dependency array — otherwise that effect tears down and re-subscribes
+  // on every single render (including the renders caused by socket events
+  // themselves), which can drop an event that arrives mid-resubscribe.
+  const onWarDeletedRef = useRef(onWarDeletedRemotely);
+  useEffect(() => {
+    onWarDeletedRef.current = onWarDeletedRemotely;
+  }, [onWarDeletedRemotely]);
 
   const refetch = useCallback(async () => {
     if (!warId) {
@@ -170,6 +188,80 @@ export function useWarBoard(warId: string | null): {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  // --- Realtime sync -------------------------------------------------------
+  // Join this war's room so the server routes us slot/scout/war events for
+  // it specifically. Remote events are merged with the exact same
+  // merge-by-id + computeSummary logic that local mutations use below, so
+  // both paths always leave state in a consistent shape. Merges are
+  // idempotent, so it's harmless if a broadcast includes the sender's own
+  // change coming back around.
+  useEffect(() => {
+    if (!warId) return;
+
+    const join = () => {
+      // eslint-disable-next-line no-console
+      // console.debug("[socket] joining room", `war:${warId}`);
+      socket.emit("war:join", warId);
+    };
+    join();
+
+    const handleSlotUpdated = (incoming: Slot) => {
+      // eslint-disable-next-line no-console
+      // console.debug("[socket] slot:updated received", incoming);
+      setState((prev) => {
+        const newSlots = prev.slots.map((s) => (s._id === incoming._id ? incoming : s));
+        slotsRef.current = newSlots;
+        return {
+          ...prev,
+          slots: newSlots,
+          summary: prev.war ? computeSummary(prev.war, newSlots) : prev.summary,
+        };
+      });
+    };
+
+    const handleScoutUpdated = (incoming: EnemyScout) => {
+      // eslint-disable-next-line no-console
+      // console.debug("[socket] scout:updated received", incoming);
+      setState((prev) => {
+        const newScouts = prev.enemyScouts.map((s) => (s.baseNumber === incoming.baseNumber ? incoming : s));
+        enemyScoutsRef.current = newScouts;
+        return { ...prev, enemyScouts: newScouts };
+      });
+    };
+
+    const handleWarUpdated = (incoming: War) => {
+      if (incoming._id !== warId) return;
+      setState((prev) => ({ ...prev, war: incoming }));
+    };
+
+    const handleWarDeleted = (payload: { warId: string }) => {
+      if (payload.warId !== warId) return;
+      onWarDeletedRef.current?.();
+    };
+
+    // Room membership lives on the socket connection, so a dropped/reconnected
+    // socket needs to rejoin explicitly.
+    socket.on("connect", join);
+    socket.on("slot:updated", handleSlotUpdated);
+    socket.on("scout:updated", handleScoutUpdated);
+    socket.on("war:updated", handleWarUpdated);
+    socket.on("war:deleted", handleWarDeleted);
+
+    return () => {
+      // eslint-disable-next-line no-console
+      // console.debug("[socket] leaving room", `war:${warId}`);
+      socket.emit("war:leave", warId);
+      socket.off("connect", join);
+      socket.off("slot:updated", handleSlotUpdated);
+      socket.off("scout:updated", handleScoutUpdated);
+      socket.off("war:updated", handleWarUpdated);
+      socket.off("war:deleted", handleWarDeleted);
+    };
+    // Deliberately NOT depending on onWarDeletedRemotely (see ref above) —
+    // only re-join/re-subscribe when the viewed war actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warId]);
 
   const updateSlot = useCallback(
     async (

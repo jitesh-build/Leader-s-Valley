@@ -69,7 +69,9 @@
 import express, { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import http from "http";
 import { connectDB } from "./db";
+import { initSocket } from "./socket";
 import warsRouter from "./routes/wars";
 import slotsRouter from "./routes/slots";
 import enemyScoutsRouter from "./routes/enemyScouts";
@@ -115,16 +117,21 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next: NextFunction) 
     return;
   }
   // eslint-disable-next-line no-console
-  console.error(err);
+  // console.error(err);
   res.status(500).json({ error: "Internal server error" });
 };
 app.use(errorHandler);
 
+// Socket.IO needs to attach to the raw http.Server (not the Express app
+// instance) so it can hijack the upgrade handshake for websocket connections.
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
 async function main(): Promise<void> {
   await connectDB(MONGODB_URI);
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     // eslint-disable-next-line no-console
-    console.log(`[server] listening on http://localhost:${PORT}`);
+    console.log(`server is running sucessfully`);
   });
 }
 

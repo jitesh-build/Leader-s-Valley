@@ -198,10 +198,11 @@
 
 
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "./api/client";
 import type { StarCount, War, WarMode } from "./types";
 import { useWarBoard } from "./hooks/useWarBoard";
+import { socket } from "./lib/socket";
 import StatsBar from "./components/StatsBar";
 import SlotBoard from "./components/SlotBoard";
 import EnemyScoutPanel from "./components/EnemyScoutPanel";
@@ -240,7 +241,36 @@ export default function App(): React.ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { state, updateSlot, updateEnemyScout } = useWarBoard(selectedWarId);
+  // Keep the war picker in sync when *any* connected client creates, renames,
+  // or deletes a war — the "wars:list" room is joined automatically by every
+  // socket connection server-side, no explicit join needed here.
+  useEffect(() => {
+    const handleWarsChanged = () => {
+      void refetchWars();
+    };
+    socket.on("war:created", handleWarsChanged);
+    socket.on("war:updated", handleWarsChanged);
+    socket.on("war:deleted", handleWarsChanged);
+    return () => {
+      socket.off("war:created", handleWarsChanged);
+      socket.off("war:updated", handleWarsChanged);
+      socket.off("war:deleted", handleWarsChanged);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // If someone else deletes the war we're currently looking at, drop back to
+  // the picker instead of leaving the board stuck on now-nonexistent data.
+  // useCallback keeps this reference stable across renders — useWarBoard also
+  // guards against an unstable callback here via a ref, but keeping this
+  // stable too avoids relying on that as the only safety net.
+  const handleActiveWarDeletedRemotely = useCallback((): void => {
+    setSelectedWarId(null);
+    void refetchWars();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const { state, updateSlot, updateEnemyScout } = useWarBoard(selectedWarId, handleActiveWarDeletedRemotely);
 
   // Whenever we switch wars, drop any active slot selection.
   useEffect(() => {

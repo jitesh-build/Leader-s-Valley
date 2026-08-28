@@ -112,6 +112,7 @@ import { Types } from "mongoose";
 import { Slot } from "../models/Slot";
 import { War } from "../models/War";
 import { asyncHandler, HttpError } from "../asyncHandler";
+import { emitToWar } from "../socket";
 
 const router = Router();
 
@@ -202,7 +203,8 @@ router.patch(
       }
       throw err;
     }
-
+    emitToWar(String(slot.warId), "slot:updated", slot);
+ 
     res.json(slot);
   })
 );
