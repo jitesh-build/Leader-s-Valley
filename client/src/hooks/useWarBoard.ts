@@ -102,10 +102,19 @@ interface WarBoardState {
 }
 
 /** Mirrors the backend's /wars/:id/summary calculation, done client-side so a
- *  single slot update doesn't need to round-trip to the server for fresh counts. */
+ *  single slot update doesn't need to round-trip to the server for fresh counts.
+ *  An enemy base counts as "assigned" whether it's a normal slot's single
+ *  target or sitting in one (or several) multi-select pools — dedupe by base
+ *  number since multi-select pools can legitimately overlap. */
 function computeSummary(war: War, slots: Slot[]): WarSummary {
   const teamAssigned = slots.filter((s) => typeof s.teamBaseNumber === "number").length;
-  const enemyAssigned = slots.filter((s) => typeof s.enemyBaseNumber === "number").length;
+
+  const enemyBaseSet = new Set<number>();
+  for (const s of slots) {
+    if (typeof s.enemyBaseNumber === "number") enemyBaseSet.add(s.enemyBaseNumber);
+    for (const n of s.enemyBaseNumbers ?? []) enemyBaseSet.add(n);
+  }
+
   return {
     size: war.size,
     slotCount: slots.length,
@@ -113,8 +122,8 @@ function computeSummary(war: War, slots: Slot[]): WarSummary {
     teamBasesAssigned: teamAssigned,
     teamBasesAvailable: war.size - teamAssigned,
     enemyBasesTotal: war.size,
-    enemyBasesAssigned: enemyAssigned,
-    enemyBasesAvailable: war.size - enemyAssigned,
+    enemyBasesAssigned: enemyBaseSet.size,
+    enemyBasesAvailable: war.size - enemyBaseSet.size,
   };
 }
 
@@ -128,8 +137,16 @@ export function useWarBoard(
   refetch: () => Promise<void>;
   updateSlot: (
     id: string,
-    input: Partial<{ teamBaseNumber: number | null; enemyBaseNumber: number | null; starsNeeded: StarCount }>
+    input: Partial<{
+      teamBaseNumber: number | null;
+      enemyBaseNumber: number | null;
+      starsNeeded: StarCount;
+      isMultiSelect: boolean;
+    }>
   ) => Promise<{ error: string | null; slots: Slot[] }>;
+  addEnemyBase: (slotId: string, baseNumber: number) => Promise<{ error: string | null; slots: Slot[] }>;
+  removeEnemyBase: (slotId: string, baseNumber: number) => Promise<{ error: string | null; slots: Slot[] }>;
+  autoFillRemaining: () => Promise<{ error: string | null; filledCount: number }>;
   updateEnemyScout: (baseNumber: number, expectedStars: StarCount) => Promise<string | null>;
 } {
   const [state, setState] = useState<WarBoardState>({
@@ -146,11 +163,13 @@ export function useWarBoard(
   // waiting on a React re-render.
   const slotsRef = useRef<Slot[]>([]);
   const enemyScoutsRef = useRef<EnemyScout[]>([]);
+  const warRef = useRef<War | null>(null);
 
   useEffect(() => {
     slotsRef.current = state.slots;
     enemyScoutsRef.current = state.enemyScouts;
-  }, [state.slots, state.enemyScouts]);
+    warRef.current = state.war;
+  }, [state.slots, state.enemyScouts, state.war]);
 
   // The caller (App) passes an inline callback that's a new function
   // reference on every render. Stash it in a ref so the socket-subscription
@@ -190,27 +209,20 @@ export function useWarBoard(
   }, [refetch]);
 
   // --- Realtime sync -------------------------------------------------------
-  // Join this war's room so the server routes us slot/scout/war events for
-  // it specifically. Remote events are merged with the exact same
-  // merge-by-id + computeSummary logic that local mutations use below, so
-  // both paths always leave state in a consistent shape. Merges are
-  // idempotent, so it's harmless if a broadcast includes the sender's own
-  // change coming back around.
   useEffect(() => {
     if (!warId) return;
 
     const join = () => {
-      // eslint-disable-next-line no-console
-      // console.debug("[socket] joining room", `war:${warId}`);
       socket.emit("war:join", warId);
     };
     join();
 
     const handleSlotUpdated = (incoming: Slot) => {
-      // eslint-disable-next-line no-console
-      // console.debug("[socket] slot:updated received", incoming);
       setState((prev) => {
-        const newSlots = prev.slots.map((s) => (s._id === incoming._id ? incoming : s));
+        const exists = prev.slots.some((s) => s._id === incoming._id);
+        const newSlots = exists
+          ? prev.slots.map((s) => (s._id === incoming._id ? incoming : s))
+          : [...prev.slots, incoming].sort((a, b) => a.index - b.index);
         slotsRef.current = newSlots;
         return {
           ...prev,
@@ -221,8 +233,6 @@ export function useWarBoard(
     };
 
     const handleScoutUpdated = (incoming: EnemyScout) => {
-      // eslint-disable-next-line no-console
-      // console.debug("[socket] scout:updated received", incoming);
       setState((prev) => {
         const newScouts = prev.enemyScouts.map((s) => (s.baseNumber === incoming.baseNumber ? incoming : s));
         enemyScoutsRef.current = newScouts;
@@ -249,8 +259,6 @@ export function useWarBoard(
     socket.on("war:deleted", handleWarDeleted);
 
     return () => {
-      // eslint-disable-next-line no-console
-      // console.debug("[socket] leaving room", `war:${warId}`);
       socket.emit("war:leave", warId);
       socket.off("connect", join);
       socket.off("slot:updated", handleSlotUpdated);
@@ -266,7 +274,12 @@ export function useWarBoard(
   const updateSlot = useCallback(
     async (
       id: string,
-      input: Partial<{ teamBaseNumber: number | null; enemyBaseNumber: number | null; starsNeeded: StarCount }>
+      input: Partial<{
+        teamBaseNumber: number | null;
+        enemyBaseNumber: number | null;
+        starsNeeded: StarCount;
+        isMultiSelect: boolean;
+      }>
     ): Promise<{ error: string | null; slots: Slot[] }> => {
       try {
         const updated = await api.updateSlot(id, input);
@@ -288,6 +301,74 @@ export function useWarBoard(
     []
   );
 
+  const addEnemyBase = useCallback(
+    async (slotId: string, baseNumber: number): Promise<{ error: string | null; slots: Slot[] }> => {
+      try {
+        const updated = await api.addEnemyBaseToSlot(slotId, baseNumber);
+        const newSlots = slotsRef.current.map((s) => (s._id === slotId ? updated : s));
+        slotsRef.current = newSlots;
+        setState((prev) => ({
+          ...prev,
+          slots: newSlots,
+          summary: prev.war ? computeSummary(prev.war, newSlots) : prev.summary,
+          error: null,
+        }));
+        return { error: null, slots: newSlots };
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Failed to add enemy base";
+        setState((prev) => ({ ...prev, error: message }));
+        return { error: message, slots: slotsRef.current };
+      }
+    },
+    []
+  );
+
+  const removeEnemyBase = useCallback(
+    async (slotId: string, baseNumber: number): Promise<{ error: string | null; slots: Slot[] }> => {
+      try {
+        const updated = await api.removeEnemyBaseFromSlot(slotId, baseNumber);
+        const newSlots = slotsRef.current.map((s) => (s._id === slotId ? updated : s));
+        slotsRef.current = newSlots;
+        setState((prev) => ({
+          ...prev,
+          slots: newSlots,
+          summary: prev.war ? computeSummary(prev.war, newSlots) : prev.summary,
+          error: null,
+        }));
+        return { error: null, slots: newSlots };
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Failed to remove enemy base";
+        setState((prev) => ({ ...prev, error: message }));
+        return { error: message, slots: slotsRef.current };
+      }
+    },
+    []
+  );
+
+  const autoFillRemaining = useCallback(async (): Promise<{ error: string | null; filledCount: number }> => {
+    if (!warId) return { error: "No war selected", filledCount: 0 };
+    try {
+      const updatedSlots = await api.autoFillRemaining(warId);
+      if (updatedSlots.length === 0) {
+        return { error: null, filledCount: 0 };
+      }
+      const updatedById = new Map(updatedSlots.map((s) => [s._id, s]));
+      const newSlots = slotsRef.current.map((s) => updatedById.get(s._id) ?? s);
+      slotsRef.current = newSlots;
+      setState((prev) => ({
+        ...prev,
+        slots: newSlots,
+        summary: prev.war ? computeSummary(prev.war, newSlots) : prev.summary,
+        error: null,
+      }));
+      return { error: null, filledCount: updatedSlots.length };
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Failed to auto-fill remaining slots";
+      setState((prev) => ({ ...prev, error: message }));
+      return { error: message, filledCount: 0 };
+    }
+  }, [warId]);
+
   const updateEnemyScout = useCallback(
     async (baseNumber: number, expectedStars: StarCount): Promise<string | null> => {
       if (!warId) return "No war selected";
@@ -306,5 +387,5 @@ export function useWarBoard(
     [warId]
   );
 
-  return { state, refetch, updateSlot, updateEnemyScout };
+  return { state, refetch, updateSlot, addEnemyBase, removeEnemyBase, autoFillRemaining, updateEnemyScout };
 }

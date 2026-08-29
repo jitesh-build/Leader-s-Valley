@@ -6,6 +6,8 @@ export interface SlotDocument extends Document {
   index: number; // fixed slot position, 1..war.size
   teamBaseNumber: number | null;
   enemyBaseNumber: number | null;
+  enemyBaseNumbers: number[];
+  isMultiSelect: boolean;
   starsNeeded: number; // 1-3, defaults to 3
   createdAt: Date;
   updatedAt: Date;
@@ -17,6 +19,8 @@ const SlotSchema = new Schema<SlotDocument>(
     index: { type: Number, required: true, min: 1 },
     teamBaseNumber: { type: Number, default: null, min: 1 },
     enemyBaseNumber: { type: Number, default: null, min: 1 },
+    enemyBaseNumbers: { type: [Number], default: [] },
+    isMultiSelect: { type: Boolean, default: false },
     starsNeeded: { type: Number, default: 3, min: 1, max: 3 },
   },
   { timestamps: true }

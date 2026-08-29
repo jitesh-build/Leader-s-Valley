@@ -5,6 +5,7 @@
 // import { EnemyScout } from "../models/EnemyScout";
 // import { WAR_MODE_SIZES, isWarMode } from "../types/warModes";
 // import { asyncHandler, HttpError } from "../asyncHandler";
+// import { emitToWar, emitToWarsList } from "../socket";
 
 // const router = Router();
 
@@ -73,6 +74,8 @@
 //     }));
 //     await Promise.all([Slot.insertMany(slotDocs), EnemyScout.insertMany(scoutDocs)]);
 
+//     emitToWarsList("war:created", war);
+
 //     res.status(201).json(war);
 //   })
 // );
@@ -93,16 +96,21 @@
 //   "/:id/summary",
 //   asyncHandler(async (req, res) => {
 //     const id = requireObjectId(req.params.id, "war");
-//     const war = await War.findById(id).lean();
-//     if (!war) throw new HttpError(404, "War not found");
 
-//     const slots = await Slot.find({ warId: war._id }).lean();
-//     const teamAssigned = slots.filter((s) => typeof s.teamBaseNumber === "number").length;
-//     const enemyAssigned = slots.filter((s) => typeof s.enemyBaseNumber === "number").length;
+//     // Run the war lookup and the three counts in parallel, and use
+//     // countDocuments() instead of pulling every slot document across the
+//     // wire just to .filter().length it in JS.
+//     const [war, slotCount, teamAssigned, enemyAssigned] = await Promise.all([
+//       War.findById(id).lean(),
+//       Slot.countDocuments({ warId: id }),
+//       Slot.countDocuments({ warId: id, teamBaseNumber: { $type: "number" } }),
+//       Slot.countDocuments({ warId: id, enemyBaseNumber: { $type: "number" } }),
+//     ]);
+//     if (!war) throw new HttpError(404, "War not found");
 
 //     res.json({
 //       size: war.size,
-//       slotCount: slots.length,
+//       slotCount,
 //       teamBasesTotal: war.size,
 //       teamBasesAssigned: teamAssigned,
 //       teamBasesAvailable: war.size - teamAssigned,
@@ -131,6 +139,10 @@
 
 //     const war = await War.findByIdAndUpdate(id, update, { new: true });
 //     if (!war) throw new HttpError(404, "War not found");
+
+//     emitToWarsList("war:updated", war);
+//     emitToWar(id, "war:updated", war);
+
 //     res.json(war);
 //   })
 // );
@@ -143,6 +155,10 @@
 //     const war = await War.findByIdAndDelete(id);
 //     if (!war) throw new HttpError(404, "War not found");
 //     await Promise.all([Slot.deleteMany({ warId: war._id }), EnemyScout.deleteMany({ warId: war._id })]);
+
+//     emitToWarsList("war:deleted", { warId: id });
+//     emitToWar(id, "war:deleted", { warId: id });
+    
 //     res.status(204).send();
 //   })
 // );
@@ -217,6 +233,8 @@ router.post(
       index: i + 1,
       teamBaseNumber: null,
       enemyBaseNumber: null,
+      enemyBaseNumbers: [],
+      isMultiSelect: false,
       starsNeeded: 3,
     }));
     const scoutDocs = Array.from({ length: resolvedSize }, (_, i) => ({
@@ -249,26 +267,32 @@ router.get(
   asyncHandler(async (req, res) => {
     const id = requireObjectId(req.params.id, "war");
 
-    // Run the war lookup and the three counts in parallel, and use
-    // countDocuments() instead of pulling every slot document across the
-    // wire just to .filter().length it in JS.
-    const [war, slotCount, teamAssigned, enemyAssigned] = await Promise.all([
+    const [war, slots] = await Promise.all([
       War.findById(id).lean(),
-      Slot.countDocuments({ warId: id }),
-      Slot.countDocuments({ warId: id, teamBaseNumber: { $type: "number" } }),
-      Slot.countDocuments({ warId: id, enemyBaseNumber: { $type: "number" } }),
+      Slot.find({ warId: id }).select("teamBaseNumber enemyBaseNumber enemyBaseNumbers").lean(),
     ]);
     if (!war) throw new HttpError(404, "War not found");
 
+    const teamAssigned = slots.filter((s) => typeof s.teamBaseNumber === "number").length;
+
+    // An enemy base counts as "assigned" whether it's a normal slot's single
+    // target or sitting in one (or several) multi-select pools — dedupe by
+    // base number since multi-select pools can legitimately overlap.
+    const enemyBaseSet = new Set<number>();
+    for (const s of slots) {
+      if (typeof s.enemyBaseNumber === "number") enemyBaseSet.add(s.enemyBaseNumber);
+      for (const n of s.enemyBaseNumbers ?? []) enemyBaseSet.add(n);
+    }
+
     res.json({
       size: war.size,
-      slotCount,
+      slotCount: slots.length,
       teamBasesTotal: war.size,
       teamBasesAssigned: teamAssigned,
       teamBasesAvailable: war.size - teamAssigned,
       enemyBasesTotal: war.size,
-      enemyBasesAssigned: enemyAssigned,
-      enemyBasesAvailable: war.size - enemyAssigned,
+      enemyBasesAssigned: enemyBaseSet.size,
+      enemyBasesAvailable: war.size - enemyBaseSet.size,
     });
   })
 );
@@ -299,6 +323,65 @@ router.patch(
   })
 );
 
+// POST /api/wars/:id/auto-fill-remaining - fill every still-empty slot with
+// the remaining team bases (one each, in ascending order) paired against a
+// SHARED multi-select pool made of every remaining enemy base.
+//
+// Example: remaining team bases [27, 28, 29], remaining enemy bases [20, 21,
+// 22] -> three empty slots each become multi-select, one gets teamBaseNumber
+// 27 with pool [20,21,22], the next 28 with pool [20,21,22], etc.
+router.post(
+  "/:id/auto-fill-remaining",
+  asyncHandler(async (req, res) => {
+    const id = requireObjectId(req.params.id, "war");
+    const war = await War.findById(id).lean();
+    if (!war) throw new HttpError(404, "War not found");
+
+    const slots = await Slot.find({ warId: id }).sort({ index: 1 });
+
+    const usedTeamBases = new Set<number>();
+    const usedEnemyBases = new Set<number>();
+    for (const s of slots) {
+      if (typeof s.teamBaseNumber === "number") usedTeamBases.add(s.teamBaseNumber);
+      if (typeof s.enemyBaseNumber === "number") usedEnemyBases.add(s.enemyBaseNumber);
+      for (const n of s.enemyBaseNumbers) usedEnemyBases.add(n);
+    }
+
+    const remainingTeamBases: number[] = [];
+    const remainingEnemyBases: number[] = [];
+    for (let n = 1; n <= war.size; n++) {
+      if (!usedTeamBases.has(n)) remainingTeamBases.push(n);
+      if (!usedEnemyBases.has(n)) remainingEnemyBases.push(n);
+    }
+
+    const emptySlots = slots.filter((s) => s.teamBaseNumber === null).sort((a, b) => a.index - b.index);
+
+    if (remainingTeamBases.length === 0 || remainingEnemyBases.length === 0 || emptySlots.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const pairCount = Math.min(emptySlots.length, remainingTeamBases.length);
+    const updated = [];
+
+    for (let i = 0; i < pairCount; i++) {
+      const slot = emptySlots[i];
+      const teamBaseNumber = remainingTeamBases[i];
+      if (!slot || teamBaseNumber === undefined) continue;
+
+      slot.teamBaseNumber = teamBaseNumber;
+      slot.isMultiSelect = true;
+      slot.enemyBaseNumber = null;
+      slot.enemyBaseNumbers = [...remainingEnemyBases];
+      await slot.save();
+      updated.push(slot);
+      emitToWar(id, "slot:updated", slot);
+    }
+
+    res.json(updated);
+  })
+);
+
 // DELETE /api/wars/:id - delete war and its roster
 router.delete(
   "/:id",
@@ -310,7 +393,7 @@ router.delete(
 
     emitToWarsList("war:deleted", { warId: id });
     emitToWar(id, "war:deleted", { warId: id });
-    
+
     res.status(204).send();
   })
 );

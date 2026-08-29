@@ -125,8 +125,25 @@ export const api = {
 
   updateSlot: (
     id: string,
-    input: Partial<{ teamBaseNumber: number | null; enemyBaseNumber: number | null; starsNeeded: StarCount }>
+    input: Partial<{
+      teamBaseNumber: number | null;
+      enemyBaseNumber: number | null;
+      starsNeeded: StarCount;
+      isMultiSelect: boolean;
+    }>
   ): Promise<Slot> => request<Slot>(`/slots/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+
+  /** Adds one base to a multi-select slot's candidate pool. Slot must already have isMultiSelect: true. */
+  addEnemyBaseToSlot: (slotId: string, baseNumber: number): Promise<Slot> =>
+    request<Slot>(`/slots/${slotId}/enemy-bases`, { method: "POST", body: JSON.stringify({ baseNumber }) }),
+
+  /** Removes one base from a multi-select slot's candidate pool. */
+  removeEnemyBaseFromSlot: (slotId: string, baseNumber: number): Promise<Slot> =>
+    request<Slot>(`/slots/${slotId}/enemy-bases/${baseNumber}`, { method: "DELETE" }),
+
+  /** Fills every still-empty slot: one remaining team base each, paired with the full shared pool of remaining enemy bases. */
+  autoFillRemaining: (warId: string): Promise<Slot[]> =>
+    request<Slot[]>(`/wars/${warId}/auto-fill-remaining`, { method: "POST" }),
 
   listEnemyScouts: (warId: string): Promise<EnemyScout[]> =>
     request<EnemyScout[]>(`/wars/${warId}/enemy-scouts`),

@@ -1,6 +1,6 @@
 import React from "react";
 import type { EnemyScout, Slot, StarCount, War, WarSummary } from "../types";
-import BasePips from "./BasePips";
+import BasePips, { EnemyBaseOwnership } from "./BasePips";
 
 interface StatsBarProps {
   war: War;
@@ -8,10 +8,12 @@ interface StatsBarProps {
   slots: Slot[];
   enemyScouts: EnemyScout[];
   activeSlotId: string | null;
+  /** slot id currently "armed" to receive the next enemy pip click into its multi-select pool */
+  poolAddArmedSlotId: string | null;
   onPickTeamBase: (n: number) => void;
   onClearTeamBase: () => void;
   onPickEnemyBase: (n: number) => void;
-  onClearEnemyBase: () => void;
+  onClearEnemyBase: (n: number) => void;
 }
 
 export default function StatsBar({
@@ -20,21 +22,45 @@ export default function StatsBar({
   slots,
   enemyScouts,
   activeSlotId,
+  poolAddArmedSlotId,
   onPickTeamBase,
   onClearTeamBase,
   onPickEnemyBase,
   onClearEnemyBase,
 }: StatsBarProps): React.ReactElement {
   const teamTakenBy = new Map<number, string>();
-  const enemyTakenBy = new Map<number, string>();
   for (const s of slots) {
     if (typeof s.teamBaseNumber === "number") teamTakenBy.set(s.teamBaseNumber, s._id);
-    if (typeof s.enemyBaseNumber === "number") enemyTakenBy.set(s.enemyBaseNumber, s._id);
   }
+
+  // Build richer enemy ownership: a base can be one normal slot's single
+  // target AND/OR sit in several multi-select slots' pools at once.
+  const enemyOwnership = new Map<number, EnemyBaseOwnership>();
+  const getOrCreate = (n: number): EnemyBaseOwnership => {
+    let entry = enemyOwnership.get(n);
+    if (!entry) {
+      entry = { normalSlotId: null, multiSlotIds: [] };
+      enemyOwnership.set(n, entry);
+    }
+    return entry;
+  };
+  for (const s of slots) {
+    if (s.isMultiSelect) {
+      for (const n of s.enemyBaseNumbers) getOrCreate(n).multiSlotIds.push(s._id);
+    } else if (typeof s.enemyBaseNumber === "number") {
+      getOrCreate(s.enemyBaseNumber).normalSlotId = s._id;
+    }
+  }
+
   const starMap = new Map<number, StarCount>();
   for (const s of enemyScouts) starMap.set(s.baseNumber, s.expectedStars);
 
   const activeSlot = slots.find((s) => s._id === activeSlotId) ?? null;
+  // Picking a NEW enemy base is only allowed right now when the active slot
+  // is a normal (single-target) slot, or a multi-select slot that's armed
+  // via its "+ Add base" button. Bases already owned by the active slot
+  // remain clickable-to-remove regardless of this flag (see BasePips).
+  const enemyPickEnabled = activeSlot ? !activeSlot.isMultiSelect || poolAddArmedSlotId === activeSlot._id : false;
 
   return (
     <div className="rounded-lg border border-base-border bg-base-panel/80 p-5">
@@ -48,7 +74,17 @@ export default function StatsBar({
         </div>
         <p className="font-mono text-xs text-ink-muted">
           {activeSlot ? (
-            <span className="text-ink-primary">Filling slot #{activeSlot.index} — tap a base below</span>
+            activeSlot.isMultiSelect ? (
+              poolAddArmedSlotId === activeSlot._id ? (
+                <span className="text-team-bright">Slot #{activeSlot.index} — tap a base to add it to the pool</span>
+              ) : (
+                <span className="text-ink-primary">
+                  Slot #{activeSlot.index} selected — use "+ Add base" to add enemy targets
+                </span>
+              )
+            ) : (
+              <span className="text-ink-primary">Filling slot #{activeSlot.index} — tap a base below</span>
+            )
           ) : (
             "Select a slot below to start assigning"
           )}
@@ -66,8 +102,8 @@ export default function StatsBar({
           </div>
           <BasePips
             total={war.size}
-            takenBy={teamTakenBy}
             tone="team"
+            takenBy={teamTakenBy}
             activeSlotId={activeSlotId}
             onPick={onPickTeamBase}
             onClear={onClearTeamBase}
@@ -84,13 +120,17 @@ export default function StatsBar({
           </div>
           <BasePips
             total={war.size}
-            takenBy={enemyTakenBy}
             tone="enemy"
+            enemyOwnership={enemyOwnership}
             activeSlotId={activeSlotId}
             onPick={onPickEnemyBase}
             onClear={onClearEnemyBase}
             starMap={starMap}
+            enemyPickEnabled={enemyPickEnabled}
           />
+          <p className="mt-1.5 font-mono text-[10px] text-ink-faint">
+            Numbered badge = base already sits in that many other multi-select pools.
+          </p>
         </div>
       </div>
     </div>
