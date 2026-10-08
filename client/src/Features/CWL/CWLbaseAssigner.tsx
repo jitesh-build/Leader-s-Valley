@@ -624,6 +624,7 @@ export default function CWLbaseAssigner(): React.ReactElement {
           <CreateWarForm onCreate={handleCreateWar} onCancel={() => setShowCreate(wars.length === 0)} />
         ) : state.war && state.summary ? (
           <>
+          <div className="sticky top-0 z-20 -mt-3 bg-page pb-2 pt-3">
             <StatsBar
               war={state.war}
               summary={state.summary}
@@ -636,6 +637,7 @@ export default function CWLbaseAssigner(): React.ReactElement {
               onPickEnemyBase={(n) => void handlePickEnemyBase(n)}
               onClearEnemyBase={(n) => void handleClearEnemyBase(n)}
             />
+            </div>
  
             {state.error ? (
               <div className="rounded-lg border border-enemy-dim bg-enemy/10 p-3 text-sm text-enemy-bright">

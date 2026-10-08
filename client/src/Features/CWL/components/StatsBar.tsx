@@ -63,7 +63,7 @@ export default function StatsBar({
   const enemyPickEnabled = activeSlot ? !activeSlot.isMultiSelect || poolAddArmedSlotId === activeSlot._id : false;
 
   return (
-    <div className="rounded-lg border border-base-border bg-base-panel/80 p-5">
+    <div className="rounded-lg border border-base-border bg-black shadow-md p-5">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-base-border pb-3">
         <div>
           <h2 className="font-display text-xl uppercase tracking-wide text-ink-primary">{war.name}</h2>
