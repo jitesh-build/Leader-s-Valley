@@ -3,9 +3,18 @@ import { Outlet } from "react-router-dom";
 import { Sidebar, Toast } from "../Home/components";
 import type { LayoutContext } from "./useLayoutContext";
 
+const COLLAPSE_KEY = "sidebar-collapsed";
+
 /** Persistent shell: Sidebar + TopBar stay mounted, only <Outlet /> changes per route. */
 export default function AppLayout() {
   const [toast, setToast] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     if (!toast) return;
@@ -13,12 +22,23 @@ export default function AppLayout() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Remember the sidebar state across reloads.
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  }, [collapsed]);
+
   const showToast = useCallback((message: string) => setToast(message), []);
   const context: LayoutContext = { showToast };
 
   return (
     <div className="flex h-screen overflow-hidden bg-page font-sans text-white">
       <Sidebar 
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((c) => !c)}
         onOpenClan={() => showToast("Clan settings opened")} 
         onComingSoon={(label) => showToast(`${label} is coming soon`)} 
       />

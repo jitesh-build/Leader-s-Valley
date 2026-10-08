@@ -6,11 +6,22 @@ import { useLayoutContext } from "../Layout/useLayoutContext";
 export default function HomePage() {
   const { showToast } = useLayoutContext();
 
+  const today = new Date();
+  
+  // Format the date to "Day, Month Date"
+  const formattedDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  }).format(today);
+
+  const finalDateStr = formattedDate.toUpperCase();
+
   return (
     <div className="px-12 pb-10 pt-14">
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-[11px] font-semibold tracking-[0.16em] text-gold-dim">MONDAY, NOVEMBER 13</div>
+          <div className="text-[11px] font-semibold tracking-[0.16em] text-gold-dim">{finalDateStr}</div>
           <h1 className="mt-5 font-display text-[40px] font-bold leading-none text-white">Welcome back, Warchief.</h1>
           <p className="mt-3 text-sm text-muted">
             Here's what's happening with <strong className="text-white/90">Dark Exiles</strong> today.
