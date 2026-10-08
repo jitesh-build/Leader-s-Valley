@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import type { Slot, StarCount } from "../types";
 import { STAR_COUNTS, STAR_TIER_CLASSES } from "../lib/starTiers";
 
@@ -16,6 +16,14 @@ interface SlotBoardProps {
   onAutoFillRemaining: () => void;
   errorBySlotId: Record<string, string>;
 }
+
+type SortMode = "index" | "asc" | "desc";
+ 
+const SORT_OPTIONS: { mode: SortMode; label: string; title: string }[] = [
+  { mode: "index", label: "Slot #", title: "Original slot order" },
+  { mode: "asc", label: "Base # ↑", title: "Team base number, lowest first (unassigned slots last)" },
+  { mode: "desc", label: "Base # ↓", title: "Team base number, highest first (unassigned slots last)" },
+];
 
 /** Small crosshair glyph used for the multi-target toggle — no icon library dependency required. */
 function CrosshairIcon({ active }: { active: boolean }): React.ReactElement {
@@ -53,6 +61,26 @@ export default function SlotBoard({
   errorBySlotId,
 }: SlotBoardProps): React.ReactElement {
   const canAutoFill = slots.some((s) => s.teamBaseNumber === null);
+  const [sortMode, setSortMode] = useState<SortMode>("index");
+
+  // Display-only ordering — the underlying `slots` array (and anything that
+  // relies on it, like auto-advance to the next empty slot) is untouched.
+  // Slots without a team base always sink to the bottom, in slot order.
+  const sortedSlots = useMemo(() => {
+    if (sortMode === "index") return slots;
+    const dir = sortMode === "asc" ? 1 : -1;
+    return [...slots].sort((a, b) => {
+      const an = a.teamBaseNumber;
+      const bn = b.teamBaseNumber;
+      if (an === null && bn === null) return a.index - b.index;
+      if (an === null) return 1;
+      if (bn === null) return -1;
+      return (an - bn) * dir;
+    });
+  }, [slots, sortMode]);
+ 
+  const totalStars = useMemo(() => slots.reduce((sum, s) => sum + s.starsNeeded, 0), [slots]);
+  const maxStars = slots.length * 3;
 
   return (
     <div className="rounded-lg border border-base-border bg-base-panel/80">
@@ -63,10 +91,45 @@ export default function SlotBoard({
             select a slot, then tap a base up top · tap the crosshair to allow multiple enemy targets
           </span>
         </h3>
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-ink-faint">Sort by</span>
+            <div className="flex overflow-hidden rounded border border-base-border" role="group" aria-label="Sort slots">
+              {SORT_OPTIONS.map((opt, i) => (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  title={opt.title}
+                  aria-pressed={sortMode === opt.mode}
+                  onClick={() => setSortMode(opt.mode)}
+                  className={[
+                    "px-2.5 py-1 font-mono text-[11px] transition",
+                    i > 0 ? "border-l border-base-border" : "",
+                    sortMode === opt.mode
+                      ? "bg-team/20 text-team-bright"
+                      : "text-ink-faint hover:text-ink-muted",
+                  ].join(" ")}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+ 
+          <div
+            className="flex items-baseline gap-2 font-mono text-xs text-ink-faint"
+            title="Sum of “stars needed” across all slots"
+          >
+            <span className="text-[10px] uppercase tracking-wide">Total stars</span>
+            <span className="text-base font-semibold text-ink-primary">{totalStars}★</span>
+            <span>/ {maxStars}★</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
-        {slots.map((slot) => {
+        {sortedSlots.map((slot) => {
           const isActive = slot._id === activeSlotId;
           const isArmed = poolAddArmedSlotId === slot._id;
           const isFilled = slot.isMultiSelect

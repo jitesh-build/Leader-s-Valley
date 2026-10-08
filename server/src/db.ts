@@ -1,15 +1,5 @@
-// import mongoose from "mongoose";
-
-// export async function connectDB(uri: string): Promise<void> {
-//   mongoose.set("strictQuery", true);
-//   await mongoose.connect(uri);
-//   // eslint-disable-next-line no-console
-//   console.log(`[db] connected -> ${uri}`);
-// }
-
 import mongoose from "mongoose";
 
-/** Strips credentials before logging, e.g. Atlas URIs embed a username:password. */
 function redactUri(uri: string): string {
   try {
     const url = new URL(uri);
