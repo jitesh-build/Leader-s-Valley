@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
-import { Sidebar, Toast, TopBar } from "../Home/components";
+import { Sidebar, Toast } from "../Home/components";
 import type { LayoutContext } from "./useLayoutContext";
 
 /** Persistent shell: Sidebar + TopBar stay mounted, only <Outlet /> changes per route. */
