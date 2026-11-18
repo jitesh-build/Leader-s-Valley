@@ -4,6 +4,7 @@ import { War } from "../models/War";
 import { Slot } from "../models/Slot";
 import { EnemyScout } from "../models/EnemyScout";
 import { WAR_MODE_SIZES, isWarMode } from "../types/warModes";
+import { LEAGUE_NAMES, normalizeLeagueTier } from "../types/leagues";
 import { asyncHandler, HttpError } from "../asyncHandler";
 import { emitToWar, emitToWarsList } from "../socket";
 
@@ -43,6 +44,12 @@ router.post(
       throw new HttpError(400, "mode must be one of 5v5, 15v15, 30v30, custom");
     }
 
+    // League tier is compulsory: it decides the war page background.
+    const resolvedLeagueTier = normalizeLeagueTier(leagueTier);
+    if (!resolvedLeagueTier) {
+      throw new HttpError(400, `leagueTier is required, e.g. "Crystal II" (leagues: ${LEAGUE_NAMES.join(", ")}; divisions I-III)`);
+    }
+
     let resolvedSize: number;
     if (mode === "custom") {
       if (typeof size !== "number" || !Number.isInteger(size) || size < 1 || size > 50) {
@@ -57,7 +64,7 @@ router.post(
       name: name.trim(),
       mode,
       size: resolvedSize,
-      leagueTier: typeof leagueTier === "string" ? leagueTier : "",
+      leagueTier: resolvedLeagueTier,
     });
 
     const slotDocs = Array.from({ length: resolvedSize }, (_, i) => ({
@@ -142,7 +149,13 @@ router.patch(
 
     const update: Partial<{ name: string; leagueTier: string; isActive: boolean }> = {};
     if (typeof name === "string" && name.trim().length > 0) update.name = name.trim();
-    if (typeof leagueTier === "string") update.leagueTier = leagueTier;
+    if (leagueTier !== undefined) {
+      const normalized = normalizeLeagueTier(leagueTier);
+      if (!normalized) {
+        throw new HttpError(400, `leagueTier must be a valid league and division, e.g. "Crystal II"`);
+      }
+      update.leagueTier = normalized;
+    }
     if (typeof isActive === "boolean") update.isActive = isActive;
 
     const war = await War.findByIdAndUpdate(id, update, { new: true });

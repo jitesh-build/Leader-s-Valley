@@ -119,6 +119,7 @@ import { ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal } from "lucid
 import { navItems } from "../data/HomeData";
 import ClanBadge from "./Clanbadge";
 import ProgressBar from "./Progressbar";
+import { badgeInitials, useSettings } from "../../Settings/settingsStore";
 
 interface Props {
   collapsed: boolean;
@@ -131,6 +132,7 @@ interface Props {
 const inactiveItem = "text-muted2 hover:bg-white/5 hover:text-white";
 
 export default function Sidebar({ collapsed, onToggleCollapsed, onOpenClan, onComingSoon }: Props) {
+  const [settings] = useSettings();
   const itemClass = `relative flex h-[54px] items-center rounded-lg text-[15px] font-medium transition ${
     collapsed ? "justify-center" : "gap-4 px-4"
   }`;
@@ -146,7 +148,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, onOpenClan, onCo
           {!collapsed && (
             <div>
               <div className="font-display text-[22px] font-bold leading-none tracking-wide text-white">
-                CLAN<span className="text-gold">FORGE</span>
+                LEADER'S<span className="text-gold"> VALLEY</span>
               </div>
               <div className="mt-2 text-[10px] font-semibold tracking-[0.18em] text-muted">LEADER COMMAND</div>
             </div>
@@ -156,18 +158,18 @@ export default function Sidebar({ collapsed, onToggleCollapsed, onOpenClan, onCo
         {/* Clan switcher */}
         <button
           onClick={onOpenClan}
-          title={collapsed ? "Dark Exiles" : undefined}
+          title={collapsed ? settings.clanName : undefined}
           className={`mt-9 flex items-center rounded-xl border border-line bg-card text-left transition hover:border-gold/40 ${
             collapsed ? "mx-3 justify-center p-2" : "mx-6 gap-4 px-5 py-4"
           }`}
         >
-          <ClanBadge initials="DX" size={38} fill="rgba(217,169,63,0.12)" stroke="#d9a93f" />
+          <ClanBadge initials={badgeInitials(settings)} size={38} fill="rgba(217,169,63,0.12)" stroke="#d9a93f" />
           {!collapsed && (
             <>
               <div className="flex-1">
                 <div className="text-[10px] font-semibold tracking-[0.14em] text-muted">YOUR CLAN</div>
-                <div className="font-display text-xl font-bold leading-tight text-white">Dark Exiles</div>
-                <div className="text-xs text-muted">Level 18 · #2L8Y9J</div>
+                <div className="font-display text-xl font-bold leading-tight text-white">{settings.clanName}</div>
+                <div className="text-xs text-muted">Level {settings.clanLevel} · {settings.clanTag}</div>
               </div>
               <ChevronRight size={16} className="text-muted" />
             </>

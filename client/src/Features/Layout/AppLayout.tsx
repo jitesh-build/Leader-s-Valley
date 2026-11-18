@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Sidebar, Toast } from "../Home/components";
 import type { LayoutContext } from "./useLayoutContext";
 
@@ -7,6 +7,7 @@ const COLLAPSE_KEY = "sidebar-collapsed";
 
 /** Persistent shell: Sidebar + TopBar stay mounted, only <Outlet /> changes per route. */
 export default function AppLayout() {
+  const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -39,7 +40,7 @@ export default function AppLayout() {
       <Sidebar 
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((c) => !c)}
-        onOpenClan={() => showToast("Clan settings opened")} 
+        onOpenClan={() => navigate("/settings")}
         onComingSoon={(label) => showToast(`${label} is coming soon`)} 
       />
 

@@ -18,7 +18,7 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value || value.trim().length === 0) {
     throw new Error(
-      `Missing required environment variable ${name}. Set it in server/.env locally (see .env.example), or in Render's Environment tab in production.`
+      `fix the environment variables`
     );
   }
   return value;

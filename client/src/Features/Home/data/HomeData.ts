@@ -5,11 +5,11 @@ import type { HealthMetric, NavItem, Stat } from "../types";
 
 export const navItems: NavItem[] = [
   { label: "Overview", icon: Home, path: "/" },
-  { label: "Clan Wars", icon: Swords, badge: { text: "LIVE", variant: "live" } },
+  { label: "Clan Wars", icon: Swords, path: "/clan-wars", badge: { text: "LIVE", variant: "live" } },
   { label: "CWL", icon: ShieldCheck, path: "/cwl", badge: { text: "3", variant: "count" } },
-  { label: "Capital Hall", icon: Landmark },
-  { label: "Roles", icon: UserCheck },
-  { label: "Members", icon: UserPlus },
+  { label: "Capital Hall", icon: Landmark, path: "/capital-hall" },
+  { label: "Roles", icon: UserCheck, path: "/roles" },
+  { label: "Members", icon: UserPlus, path: "/members" },
 ];
 
 export const stats: Stat[] = [
