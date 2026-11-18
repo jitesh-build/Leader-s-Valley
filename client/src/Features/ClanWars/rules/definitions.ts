@@ -35,7 +35,7 @@ function makeViolation(
     memberPosition: member.mapPosition,
     status,
     message,
-    attackOrder: attack?.order,
+    ...(attack ? { attackOrder: attack.order } : {}),
   };
 }
 
