@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Eye, Gamepad2, Info, Landmark, Layers, Search, ShieldAlert, ShieldCheck, Swords, type LucideIcon } from "lucide-react";
+import { Eye, Info, Landmark, Layers, Search, ShieldAlert, ShieldCheck, Swords, type LucideIcon } from "lucide-react";
 import StatCard from "../Home/components/Statcard";
 import { useNow } from "../ClanWars/hooks/useNow";
 import { useRules } from "../ClanWars/hooks/useRules";
 import { useWarData } from "../ClanWars/hooks/useWarData";
 import { evaluateRules } from "../ClanWars/rules/engine";
 import CapitalTab from "./components/CapitalTab";
-import ClanWarTab, { type LiveWar } from "./components/Clanwartab";
+import ClanWarTab, { type LiveWar } from "./components/ClanwarTab";
 import CwlTab from "./components/Cwltab";
 import OtherTab from "./components/Othertab";
 import { roleLabel } from "./components/ui";

@@ -1,4 +1,4 @@
-import { Clock, ShieldAlert, ShieldCheck } from "lucide-react";
+// import { Clock, ShieldAlert, ShieldCheck } from "lucide-react";
 import ClanBadge from "../../Home/components/Clanbadge";
 import { formatCountdown, initials } from "../format";
 import { useNow } from "../hooks/useNow";
@@ -17,8 +17,8 @@ const STATE_META: Record<WarState, { label: string; text: string; dot: string; t
   inWar: { label: "BATTLE DAY", text: "text-red-400", dot: "bg-red-500 animate-pulse", timerLabel: "Ends in" },
   warEnded: { label: "WAR ENDED", text: "text-muted2", dot: "bg-muted", timerLabel: "Final result" },
 };
-
-export default function Scoreboard({ war, violatedMembers, atRiskMembers }: Props) {
+// violatedMembers, atRiskMembers 
+export default function Scoreboard({ war }: Props) {
   const now = useNow(1000);
   const meta = STATE_META[war.state];
   const { clan, opponent } = war;
@@ -27,8 +27,8 @@ export default function Scoreboard({ war, violatedMembers, atRiskMembers }: Prop
   const remaining = target ? new Date(target).getTime() - now.getTime() : null;
 
   const maxAttacks = war.teamSize * war.attacksPerMember;
-  const totalStars = clan.stars + opponent.stars;
-  const share = totalStars === 0 ? 50 : (clan.stars / totalStars) * 100;
+  // const totalStars = clan.stars + opponent.stars;
+  // const share = totalStars === 0 ? 50 : (clan.stars / totalStars) * 100;
 
   return (
     <div className="flex justify-center">

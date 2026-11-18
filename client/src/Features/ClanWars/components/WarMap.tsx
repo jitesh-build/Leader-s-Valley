@@ -367,7 +367,7 @@ export default function WarMap({ war, violations, onShowRuleBreaks }: Props) {
                 selected={isSelected("enemy", m.tag)}
                 onToggle={() => toggle("enemy", m.tag)}
               >
-                <EnemyDetails best={best} attackerName={best ? (clanByTag.get(best.attackerTag)?.name ?? null) : null} />
+                <EnemyDetails {...(best ? { best } : {})} attackerName={best ? (clanByTag.get(best.attackerTag)?.name ?? null) : null} />
               </BaseRow>
             );
           })}
