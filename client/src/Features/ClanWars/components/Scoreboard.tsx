@@ -30,6 +30,8 @@ export default function Scoreboard({ war }: Props) {
   // const totalStars = clan.stars + opponent.stars;
   // const share = totalStars === 0 ? 50 : (clan.stars / totalStars) * 100;
 
+  // console.log(clan)
+
   return (
     <div className="flex justify-center">
     <section className=" rounded-xl w-max border-2 border-line bg-black/50">
@@ -74,7 +76,8 @@ export default function Scoreboard({ war }: Props) {
           className="absolute right-2 top-1/2 z-10 -translate-y-1/2 text-sm font-bold text-white"
           style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
         >
-          {Math.round(clan.destructionPercentage)}
+          {clan.stars}
+          
         </span>
       </div>
       <img
@@ -113,7 +116,7 @@ export default function Scoreboard({ war }: Props) {
           className="absolute left-2 top-1/2 z-10 -translate-y-1/2 text-sm font-bold text-white"
           style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
         >
-          {Math.round(opponent.destructionPercentage)}
+          {opponent.stars}
         </span>
       </div>
       <img
