@@ -7,6 +7,7 @@ import { initSocket } from "./socket";
 import warsRouter from "./routes/wars";
 import slotsRouter from "./routes/slots";
 import enemyScoutsRouter from "./routes/enemyScouts";
+import clashRouter from "./routes/clash";
 import { HttpError } from "./asyncHandler";
 
 dotenv.config();
@@ -28,6 +29,8 @@ const MONGODB_URI = requireEnv("MONGODB_URI");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(cors({ origin: CLIENT_ORIGIN }));
 app.use(express.json());
 
@@ -38,6 +41,7 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.use("/api/wars", warsRouter);
 app.use("/api", slotsRouter);
 app.use("/api", enemyScoutsRouter);
+app.use("/api/clash", clashRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
+import { ClanDataProvider, useClanData } from "../../lib/ClanDataProvider";
 import { Sidebar, Toast } from "../Home/components";
 import type { LayoutContext } from "./useLayoutContext";
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-/** Persistent shell: Sidebar + TopBar stay mounted, only <Outlet /> changes per route. */
-export default function AppLayout() {
+/** Persistent shell: Sidebar stays mounted, only <Outlet /> changes per route. */
+function Shell() {
   const navigate = useNavigate();
+  const { clanTag } = useClanData();
   const [toast, setToast] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -37,15 +39,15 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-page font-sans text-white">
-      <Sidebar 
+      <Sidebar
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((c) => !c)}
-        onOpenClan={() => navigate("/settings")}
-        onComingSoon={(label) => showToast(`${label} is coming soon`)} 
+        // No clan yet -> the Overview page is where you connect one; otherwise the clan settings.
+        onOpenClan={() => navigate(clanTag === null ? "/" : "/settings")}
+        onComingSoon={(label) => showToast(`${label} is coming soon`)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        {/* <TopBar onAddMember={() => showToast("Add member dialog opened")} /> */}
         <main className="flex-1">
           <Outlet context={context} />
         </main>
@@ -53,5 +55,14 @@ export default function AppLayout() {
 
       <Toast message={toast} />
     </div>
+  );
+}
+
+/** The clan's live data is loaded once here and shared by the sidebar and every page. */
+export default function AppLayout() {
+  return (
+    <ClanDataProvider>
+      <Shell />
+    </ClanDataProvider>
   );
 }

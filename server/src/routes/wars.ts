@@ -5,6 +5,7 @@ import { Slot } from "../models/Slot";
 import { EnemyScout } from "../models/EnemyScout";
 import { WAR_MODE_SIZES, isWarMode } from "../types/warModes";
 import { LEAGUE_NAMES, normalizeLeagueTier } from "../types/leagues";
+import { normalizeClanTag } from "../services/clashApi";
 import { asyncHandler, HttpError } from "../asyncHandler";
 import { emitToWar, emitToWarsList } from "../socket";
 
@@ -30,11 +31,12 @@ router.get(
 router.post(
   "/",
   asyncHandler(async (req, res) => {
-    const { name, mode, size, leagueTier } = req.body as {
+    const { name, mode, size, leagueTier, clanTag } = req.body as {
       name?: unknown;
       mode?: unknown;
       size?: unknown;
       leagueTier?: unknown;
+      clanTag?: unknown;
     };
 
     if (typeof name !== "string" || name.trim().length === 0) {
@@ -49,6 +51,9 @@ router.post(
     if (!resolvedLeagueTier) {
       throw new HttpError(400, `leagueTier is required, e.g. "Crystal II" (leagues: ${LEAGUE_NAMES.join(", ")}; divisions I-III)`);
     }
+
+    // Optional link to the in-game clan (used for live data). Empty = not linked.
+    const resolvedClanTag = typeof clanTag === "string" && clanTag.trim() !== "" ? normalizeClanTag(clanTag) : "";
 
     let resolvedSize: number;
     if (mode === "custom") {
@@ -65,6 +70,7 @@ router.post(
       mode,
       size: resolvedSize,
       leagueTier: resolvedLeagueTier,
+      clanTag: resolvedClanTag,
     });
 
     const slotDocs = Array.from({ length: resolvedSize }, (_, i) => ({
@@ -141,13 +147,14 @@ router.patch(
   "/:id",
   asyncHandler(async (req, res) => {
     const id = requireObjectId(req.params.id, "war");
-    const { name, leagueTier, isActive } = req.body as {
+    const { name, leagueTier, isActive, clanTag } = req.body as {
       name?: unknown;
       leagueTier?: unknown;
       isActive?: unknown;
+      clanTag?: unknown;
     };
 
-    const update: Partial<{ name: string; leagueTier: string; isActive: boolean }> = {};
+    const update: Partial<{ name: string; leagueTier: string; isActive: boolean; clanTag: string }> = {};
     if (typeof name === "string" && name.trim().length > 0) update.name = name.trim();
     if (leagueTier !== undefined) {
       const normalized = normalizeLeagueTier(leagueTier);
@@ -157,6 +164,7 @@ router.patch(
       update.leagueTier = normalized;
     }
     if (typeof isActive === "boolean") update.isActive = isActive;
+    if (typeof clanTag === "string") update.clanTag = clanTag.trim() === "" ? "" : normalizeClanTag(clanTag);
 
     const war = await War.findByIdAndUpdate(id, update, { new: true });
     if (!war) throw new HttpError(404, "War not found");

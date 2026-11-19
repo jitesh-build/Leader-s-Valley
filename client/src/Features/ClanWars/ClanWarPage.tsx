@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { Info, RefreshCw } from "lucide-react";
+import { useClanTag } from "../../lib/useClanTag";
+import ClanTagForm from "./components/ClanTagForm";
 import { RuleBreakersButton, RulesButton } from "./components/PanelButtons";
 import RuleEditor from "./components/RuleEditor";
 import RulesPanel from "./components/RulesPanel";
 import Scoreboard from "./components/Scoreboard";
+import StatusCard from "./components/StatusCard";
 import ViolationsPanel from "./components/ViolationPanel";
 import WarMap from "./components/WarMap";
+import { useLiveWar, type WarSource } from "./hooks/useLiveWar";
 import { useNow } from "./hooks/useNow";
 import { useRules } from "./hooks/useRules";
 import { useWarData } from "./hooks/useWarData";
 import { evaluateRules } from "./rules/engine";
-import type { Rule } from "./rules/types";
+import type { Assignments, Rule } from "./rules/types";
 
 /**
  * Height the page has with a 15v15 war — the size the background was tuned on.
@@ -21,8 +25,47 @@ import type { Rule } from "./rules/types";
  */
 const BG_REF_HEIGHT = 2400;
 
+/** Live wars have no assignments yet (they come from the CWL base assigner), so the "assigned base" rule stays quiet. */
+const NO_ASSIGNMENTS: Assignments = {};
+
+const SOURCE_KEY = "clanwar-source-v1";
+
+function loadSource(): WarSource {
+  try {
+    return localStorage.getItem(SOURCE_KEY) === "cwl" ? "cwl" : "war";
+  } catch {
+    return "war";
+  }
+}
+
+const SOURCES: { id: WarSource; label: string }[] = [
+  { id: "war", label: "Clan war" },
+  { id: "cwl", label: "CWL round" },
+];
+
+const chipButton =
+  "rounded-md px-2 py-1 text-xs font-semibold text-white/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold/70";
+
 export default function ClanWarPage() {
-  const { war, assignments, isSample } = useWarData();
+  const { clanTag, setClanTag } = useClanTag();
+  const [source, setSource] = useState<WarSource>(loadSource);
+  const [demo, setDemo] = useState(false);
+  const [changingClan, setChangingClan] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SOURCE_KEY, source);
+    } catch {
+      /* storage unavailable — the choice just won't be remembered */
+    }
+  }, [source]);
+
+  const sample = useWarData();
+  const live = useLiveWar({ clanTag: demo ? null : clanTag, source });
+
+  const war = demo ? sample.war : live.war;
+  const assignments = demo ? sample.assignments : NO_ASSIGNMENTS;
+
   const { rules, saveRule, toggleRule, deleteRule } = useRules();
   // Re-check once a minute so "at risk" warnings kick in as the timer runs down.
   const now = useNow(60_000);
@@ -57,7 +100,10 @@ export default function ClanWarPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [editor]);
 
-  const violations = useMemo(() => evaluateRules(war, rules, { now, assignments }), [war, rules, now, assignments]);
+  const violations = useMemo(
+    () => (war ? evaluateRules(war, rules, { now, assignments }) : []),
+    [war, rules, now, assignments]
+  );
 
   const countByRule = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -74,6 +120,50 @@ export default function ClanWarPage() {
   }, [violations]);
 
   const activeRuleCount = rules.filter((r) => r.enabled && r.type !== "manual").length;
+
+  const showClanForm = !demo && (clanTag === null || changingClan);
+  const lastUpdated = live.updatedAt?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  function saveClan(tag: string) {
+    setClanTag(tag);
+    setChangingClan(false);
+  }
+
+  /** What to show in the middle of the page when there is no war to draw. */
+  function renderNoWar() {
+    if (live.loading) {
+      return <StatusCard tone="loading" title="Loading your war…">Asking Clash of Clans for the latest. The first load can take a few seconds.</StatusCard>;
+    }
+    const retry = (
+      <button type="button" onClick={live.refresh} className="rounded-lg border border-line bg-black/40 px-3 py-1.5 text-xs font-bold text-white hover:border-gold/40">
+        Try again
+      </button>
+    );
+    if (live.error) {
+      return (
+        <StatusCard tone="error" title="Couldn't load the war" action={retry}>
+          <p>{live.error.message}</p>
+          {live.error.status === 403 && <p className="mt-1.5 text-white/60">A leader can make it public in the game: Clan settings → War log → Public.</p>}
+          {live.error.status === 404 && <p className="mt-1.5 text-white/60">Check the clan tag with “Change”.</p>}
+          {live.error.status === 503 && <p className="mt-1.5 text-white/60">The server may not have its Clash of Clans key set up yet.</p>}
+        </StatusCard>
+      );
+    }
+    if (source === "cwl") {
+      return (
+        <StatusCard tone="info" title={live.cwl?.round ? "Couldn't find your war in this round" : "No CWL round yet"} action={retry}>
+          {live.cwl?.round
+            ? `Round ${live.cwl.round} has started, but ${clanTag ?? "your clan"} isn't listed in any of its wars.`
+            : `${clanTag ?? "Your clan"} isn't in a Clan War League right now, or the first round hasn't started.`}
+        </StatusCard>
+      );
+    }
+    return (
+      <StatusCard tone="info" title="Not in a war right now" action={retry}>
+        {clanTag ?? "Your clan"} has no clan war in preparation or battle. If your clan is in the Clan War League, switch to “CWL round” above.
+      </StatusCard>
+    );
+  }
 
   return (
     <div className="relative isolate min-h-full px-12 pb-10 pt-10">
@@ -112,17 +202,82 @@ export default function ClanWarPage() {
           <h1 className="mt-5 font-display text-[40px] font-bold leading-none text-white">War room</h1>
           <p className="mt-3 text-sm text-muted">Track the battle and let the rules catch the rule breakers for you.</p>
         </div>
-        {isSample && (
-          <div className="mb-1 flex items-center gap-2 rounded-lg border border-line bg-card px-4 py-2.5 text-xs text-muted2">
-            <Info size={14} className="text-gold" />
-            Sample data — connect the Clash of Clans API to go live
-          </div>
-        )}
+
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          {demo ? (
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-card px-4 py-2.5 text-xs text-muted2">
+              <Info size={14} className="text-gold" />
+              Sample data — not your clan
+              <button type="button" onClick={() => setDemo(false)} className={`${chipButton} text-gold`}>
+                Use my clan
+              </button>
+            </div>
+          ) : (
+            clanTag !== null &&
+            !changingClan && (
+              <div className="flex items-center gap-1 rounded-lg border border-line bg-black/50 py-1.5 pl-3 pr-1.5 text-xs backdrop-blur-sm">
+                <span className="font-bold text-white">{clanTag}</span>
+                <button type="button" onClick={() => setChangingClan(true)} className={chipButton}>
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={live.refresh}
+                  disabled={live.refreshing || live.loading}
+                  aria-label="Refresh war"
+                  title={lastUpdated ? `Updated ${lastUpdated}` : "Refresh"}
+                  className={`${chipButton} flex items-center gap-1.5 disabled:opacity-60`}
+                >
+                  <RefreshCw size={13} className={live.refreshing || live.loading ? "animate-spin" : ""} />
+                  {lastUpdated ?? "Refresh"}
+                </button>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
+      {/* Regular war or CWL round */}
+      {!demo && clanTag !== null && !changingClan && (
+        <div role="group" aria-label="War type" className="mt-6 flex gap-2">
+          {SOURCES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={source === s.id}
+              onClick={() => setSource(s.id)}
+              className={`rounded-lg border px-3.5 py-1.5 text-xs font-bold transition ${
+                source === s.id ? "border-gold/60 bg-gold/10 text-gold" : "border-line bg-black/40 text-white/70 hover:border-gold/30 hover:text-white"
+              }`}
+            >
+              {s.label}
+              {s.id === "cwl" && live.cwl?.round && source === "cwl" ? ` · round ${live.cwl.round}` : ""}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-9 space-y-5">
-        <Scoreboard war={war} violatedMembers={violatedMembers} atRiskMembers={atRiskMembers} />
-        <WarMap war={war} violations={violations} onShowRuleBreaks={showRuleBreaksFor} />
+        {showClanForm ? (
+          <ClanTagForm
+            initial={clanTag ?? ""}
+            onSave={saveClan}
+            onCancel={clanTag !== null ? () => setChangingClan(false) : undefined}
+            onDemo={clanTag === null ? () => setDemo(true) : undefined}
+          />
+        ) : war ? (
+          <>
+            {!demo && live.error && (
+              <p className="text-center text-xs font-semibold text-amber-400" style={{ textShadow: "0 1px 2px #000" }}>
+                Couldn't refresh just now — showing the last data we got.
+              </p>
+            )}
+            <Scoreboard war={war} violatedMembers={violatedMembers} atRiskMembers={atRiskMembers} />
+            <WarMap war={war} violations={violations} onShowRuleBreaks={showRuleBreaksFor} />
+          </>
+        ) : (
+          renderNoWar()
+        )}
       </div>
 
       {/* Rule breakers button + overlay: pinned to the bottom-left of the screen while you scroll */}

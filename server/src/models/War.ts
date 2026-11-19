@@ -7,6 +7,7 @@ export interface WarDocument extends Document {
   mode: WarMode;
   size: number;
   leagueTier: string;
+  clanTag: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -18,6 +19,7 @@ const WarSchema = new Schema<WarDocument>(
     mode: { type: String, required: true, enum: WAR_MODES },
     size: { type: Number, required: true, min: 1, max: 50 },
     leagueTier: { type: String, default: "" },
+    clanTag: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
