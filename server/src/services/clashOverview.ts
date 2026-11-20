@@ -1,5 +1,5 @@
 import type { RawClan, RawGoldPass, RawLeagueGroup, RawRaidSeason, RawWar } from "../types/clash";
-import { mapClanSummary, mapGoldPass, mapLeagueGroup, mapMember, mapWar } from "./clashMappers";
+import { mapClanSummary, mapGoldPass, mapLeagueGroup, mapMember, mapWar, parseCocTime } from "./clashMappers";
 import type { MappedWar } from "./clashMappers";
 
 export interface OverviewInput {
@@ -123,14 +123,8 @@ export function buildOverview(input: OverviewInput) {
     raid: raid
       ? {
           state: raid.state ?? null,
-          startTime: mapGoldPass({
-            ...(raid.startTime === undefined ? {} : { startTime: raid.startTime }),
-            ...(raid.endTime === undefined ? {} : { endTime: raid.endTime }),
-          }).startTime,
-          endTime: mapGoldPass({
-            ...(raid.startTime === undefined ? {} : { startTime: raid.startTime }),
-            ...(raid.endTime === undefined ? {} : { endTime: raid.endTime }),
-          }).endTime,
+          startTime: parseCocTime(raid.startTime),
+          endTime: parseCocTime(raid.endTime),
           attacksUsed: raidUsed,
           attackLimit: raidLimit,
           totalLoot: raid.capitalTotalLoot ?? 0,

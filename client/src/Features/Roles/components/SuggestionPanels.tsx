@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Check, ListPlus, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, Check, ListPlus, Minus, ShieldCheck, X } from "lucide-react";
 import { RoleBadge } from "../../Members/components/ui";
 import type { PromotionSuggestion, ReviewSuggestion } from "../types";
 
@@ -49,51 +49,61 @@ export function PromotionPanel({
 }) {
   return (
     <PanelShell eyebrow="AUTO-CHECK" title="Promotion candidates">
-      <p className="mt-1 text-xs text-muted">Members who pass every check, or miss just one. Tune the checks in “Criteria”.</p>
+      <p className="mt-1 text-xs text-muted">
+        Members who pass every check that has data, or miss just one. Checks the game gives no data for are skipped. Tune them in “Criteria”.
+      </p>
       {suggestions.length === 0 ? (
         <Empty text="Nobody is close to a promotion with the current criteria." />
       ) : (
         <ul className="mt-5 max-h-[520px] space-y-3 overflow-y-auto pr-1">
-          {suggestions.map((s) => (
-            <li key={s.member.tag} className="rounded-xl bg-panel p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{s.member.name}</span>
-                  <RoleBadge role={s.member.role} />
-                  <ArrowRight size={13} className="text-muted" />
-                  <RoleBadge role={s.to} />
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider ${
-                      s.ready ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-400"
-                    }`}
-                  >
-                    {s.ready ? "READY" : "ALMOST"}
-                  </span>
+          {suggestions.map((s) => {
+            const checked = s.results.filter((r) => r.status !== "unknown");
+            return (
+              <li key={s.member.tag} className="rounded-xl bg-panel p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-white">{s.member.name}</span>
+                    <RoleBadge role={s.member.role} />
+                    <ArrowRight size={13} className="text-muted" />
+                    <RoleBadge role={s.to} />
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider ${
+                        s.ready ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-400"
+                      }`}
+                    >
+                      {s.ready ? "READY" : "ALMOST"}
+                    </span>
+                  </div>
+                  <PlanButton planned={plannedTags.has(s.member.tag)} onClick={() => onPlan(s)} />
                 </div>
-                <PlanButton planned={plannedTags.has(s.member.tag)} onClick={() => onPlan(s)} />
-              </div>
 
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {s.results.map((r) => (
-                  <span
-                    key={r.id}
-                    title={r.detail}
-                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                      r.pass ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
-                    }`}
-                  >
-                    {r.pass ? <Check size={10} /> : <X size={10} />}
-                    {r.label}
-                  </span>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {checked.map((r) => (
+                    <span
+                      key={r.id}
+                      title={r.detail}
+                      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        r.status === "pass" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                      }`}
+                    >
+                      {r.status === "pass" ? <Check size={10} /> : <X size={10} />}
+                      {r.label}
+                    </span>
+                  ))}
+                </div>
+                {s.failing.map((f) => (
+                  <p key={f.id} className="mt-2 text-[11px] text-muted">
+                    Missing: <span className="text-muted2">{f.detail}</span>
+                  </p>
                 ))}
-              </div>
-              {s.failing.map((f) => (
-                <p key={f.id} className="mt-2 text-[11px] text-muted">
-                  Missing: <span className="text-muted2">{f.detail}</span>
-                </p>
-              ))}
-            </li>
-          ))}
+                {s.unknown.length > 0 && (
+                  <p className="mt-2 flex flex-wrap items-center gap-1 text-[10px] text-muted">
+                    <Minus size={10} /> Not checked (no data): {s.unknown.map((u) => u.label.toLowerCase()).join(", ")}
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </PanelShell>
@@ -111,7 +121,7 @@ export function ReviewPanel({
 }) {
   return (
     <PanelShell eyebrow="AUTO-CHECK" title="Needs a review">
-      <p className="mt-1 text-xs text-muted">Elders and Co-leaders whose record has slipped. A flag is a prompt to talk, not a verdict.</p>
+      <p className="mt-1 text-xs text-muted">Elders and Co-leaders whose numbers have slipped. A flag is a prompt to talk, not a verdict.</p>
       {suggestions.length === 0 ? (
         <Empty text="No Elder or Co-leader is flagged right now." />
       ) : (

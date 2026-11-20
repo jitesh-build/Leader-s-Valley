@@ -1,12 +1,37 @@
+import { parseClanTag } from "../../lib/clashApi";
+
 export interface DataItem {
   key: string;
   label: string;
   description: string;
+  /** Checks a value from a backup file before it is restored. Default: it must be valid JSON. */
+  check?: (raw: string) => boolean;
 }
 
-/** Everything the app keeps in this browser until you have a backend. */
+const isJson = (raw: string): boolean => {
+  try {
+    JSON.parse(raw);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Everything the app keeps in this browser until you have accounts. */
 export const DATA_ITEMS: DataItem[] = [
-  { key: "clan-settings-v1", label: "Clan settings", description: "Clan profile and reminder message" },
+  { key: "clan-settings-v1", label: "Clan settings", description: "Display name, badge letters and reminder message" },
+  {
+    key: "clash-clan-tag-v1",
+    label: "Connected clan",
+    description: "The clan tag this browser loads live data for",
+    check: (raw) => parseClanTag(raw) !== null,
+  },
+  {
+    key: "clanwar-source-v1",
+    label: "War view",
+    description: "Whether the Clan War page shows the regular war or the CWL round",
+    check: (raw) => raw === "war" || raw === "cwl",
+  },
   { key: "clanwar-rules-v1", label: "War rules", description: "Rules and custom rules from the Clan War page" },
   { key: "members-notes-v1", label: "Member notes", description: "Leader notes and the watch list" },
   { key: "role-criteria-v1", label: "Role criteria", description: "Promotion and review thresholds" },
@@ -71,15 +96,12 @@ export function restoreBackup(text: string): RestoreResult {
   if (!file || file.app !== "clanforge" || !file.data || typeof file.data !== "object") {
     return { ok: false, error: "That doesn't look like a ClanForge backup." };
   }
-  const allowed = new Set(DATA_ITEMS.map((i) => i.key));
-  const entries = Object.entries(file.data as Record<string, unknown>).filter(([k]) => allowed.has(k));
-  for (const [, v] of entries) {
+  const items = new Map(DATA_ITEMS.map((i) => [i.key, i]));
+  const entries = Object.entries(file.data as Record<string, unknown>).filter(([k]) => items.has(k));
+  for (const [k, v] of entries) {
     if (typeof v !== "string") return { ok: false, error: "The backup contains data in an unexpected format." };
-    try {
-      JSON.parse(v);
-    } catch {
-      return { ok: false, error: "The backup contains corrupted data." };
-    }
+    const check = items.get(k)?.check ?? isJson;
+    if (!check(v)) return { ok: false, error: "The backup contains corrupted data." };
   }
   try {
     for (const [k, v] of entries) localStorage.setItem(k, v as string);

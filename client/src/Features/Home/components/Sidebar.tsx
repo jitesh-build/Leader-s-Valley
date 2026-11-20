@@ -43,7 +43,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed, onOpenClan, onCo
         : error
           ? `${clanTag} · couldn't load`
           : clanTag;
-  const badgeText = clan ? initialsOf(clan.name) : "?";
+  const badgeText = settings.badgeInitials.trim().toUpperCase().slice(0, 3) || (clan ? initialsOf(clan.name) : "?");
   const leaderInitial = settings.leaderName.trim().charAt(0).toUpperCase() || "?";
 
   const itemClass = `relative flex h-[54px] items-center rounded-lg text-[15px] font-medium transition ${

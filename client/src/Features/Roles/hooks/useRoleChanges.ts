@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Role } from "../../Members/types";
-import type { PlannedChange } from "../types";
+import type { PlannedChange, Role } from "../types";
 
 const KEY = "role-plan-v1";
 

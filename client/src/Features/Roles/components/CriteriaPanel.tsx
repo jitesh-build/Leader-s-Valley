@@ -12,8 +12,9 @@ interface Field {
 
 const PROMOTION: Field[] = [
   { key: "minParticipation", label: "War participation at least", unit: "%", min: 0, max: 100 },
-  { key: "minAttackUse", label: "Attacks used at least", unit: "%", min: 0, max: 100 },
-  { key: "maxBreaks", label: "Rule breaks at most", min: 0, max: 20 },
+  { key: "minAttackUse", label: "Attacks used (current war) at least", unit: "%", min: 0, max: 100 },
+  { key: "minRaidUse", label: "Raid attacks used at least", unit: "%", min: 0, max: 100 },
+  { key: "maxBreaks", label: "Rule breaks (current war) at most", min: 0, max: 20 },
   { key: "minDonations", label: "Donated at least", min: 0, max: 20000, step: 50 },
   { key: "minRatio", label: "Donation ratio at least", min: 0, max: 10, step: 0.1 },
   { key: "minClanGames", label: "Clan games points at least", min: 0, max: 4000, step: 100 },
@@ -22,7 +23,9 @@ const PROMOTION: Field[] = [
 ];
 
 const REVIEW: Field[] = [
-  { key: "reviewBreaks", label: "Flag at this many rule breaks", min: 1, max: 30 },
+  { key: "reviewBreaks", label: "Flag at this many rule breaks (current war)", min: 1, max: 30 },
+  { key: "reviewAttackUse", label: "Flag below attacks used (current war)", unit: "%", min: 0, max: 100 },
+  { key: "reviewDonations", label: "Flag below donations this season of", min: 0, max: 20000, step: 50 },
   { key: "reviewParticipation", label: "Flag below war participation of", unit: "%", min: 0, max: 100 },
 ];
 
@@ -63,7 +66,11 @@ export default function CriteriaPanel({ criteria, onChange, onReset }: Props) {
         </button>
       </div>
 
-      <div className="mt-4 text-[10px] font-semibold tracking-[0.14em] text-muted">TO BE PROMOTED — ALL MUST PASS</div>
+      <p className="mt-1 text-xs text-muted">
+        War participation, clan games and time in clan need history the game doesn't keep, so they're skipped for now.
+      </p>
+
+      <div className="mt-4 text-[10px] font-semibold tracking-[0.14em] text-muted">TO BE PROMOTED — ALL CHECKS WITH DATA MUST PASS</div>
       <div className="mt-3 space-y-2.5">
         {PROMOTION.map((f) => (
           <FieldRow key={f.key} f={f} value={criteria[f.key]} onChange={(v) => onChange(f.key, v)} />

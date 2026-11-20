@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { ClanDataProvider, useClanData } from "../../lib/ClanDataProvider";
 import { Sidebar, Toast } from "../Home/components";
+import { useSyncSettingsFromClan } from "../Settings/useSyncSettings";
 import type { LayoutContext } from "./useLayoutContext";
 
 const COLLAPSE_KEY = "sidebar-collapsed";
@@ -10,6 +11,7 @@ const COLLAPSE_KEY = "sidebar-collapsed";
 function Shell() {
   const navigate = useNavigate();
   const { clanTag } = useClanData();
+  useSyncSettingsFromClan();
   const [toast, setToast] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {

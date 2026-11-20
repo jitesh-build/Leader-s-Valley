@@ -163,9 +163,46 @@ export interface ApiOverview {
   unavailable: string[];
 }
 
+/** A clan member with the data the game really provides (GET /api/clash/clans/:tag/roster). */
+export interface ApiRosterMember {
+  tag: string;
+  name: string;
+  role: "leader" | "coLeader" | "elder" | "member";
+  townHallLevel: number | null;
+  trophies: number | null;
+  clanRank: number | null;
+  /** Donations this season. */
+  donations: number;
+  donationsReceived: number;
+  /** Attacks in the current / just-ended war. null = not in that war (or no war). */
+  war: { attacksUsed: number; attacksAvailable: number; stars: number } | null;
+  /** Attacks in the latest capital raid weekend. null = not listed for it. */
+  raid: { attacksUsed: number; attackLimit: number; looted: number } | null;
+}
+
+export interface ApiRoster {
+  clanTag: string;
+  members: ApiRosterMember[];
+  war: { state: string; teamSize: number; attacksPerMember: number; endTime: string | null } | null;
+  raid: { state: string | null } | null;
+  unavailable: string[];
+}
+
+/** Server check: is the Clash of Clans key set up? */
+export interface ApiStatus {
+  configured: boolean;
+  allowedClanCount: number;
+}
+
 const tagPath = (tag: string): string => `/clans/${encodeURIComponent(tag)}`;
 
 export const clashApi = {
+  /** Is the server's Clash of Clans key configured? (never returns the key) */
+  getStatus: (signal?: AbortSignal) => request<ApiStatus>("/status", signal),
+  /** Basic clan info — used to check that a tag exists. */
+  getClan: (tag: string, signal?: AbortSignal) => request<ApiOverview["clan"]>(tagPath(tag), signal),
+  /** Every member with donations and attacks in the current war / latest raid weekend. */
+  getRoster: (tag: string, signal?: AbortSignal) => request<ApiRoster>(`${tagPath(tag)}/roster`, signal),
   /** Clan, members, capital, war, CWL, season and health in one request. */
   getOverview: (tag: string, signal?: AbortSignal) => request<ApiOverview>(`${tagPath(tag)}/overview`, signal),
   /** The regular clan war happening now. */

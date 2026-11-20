@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { asyncHandler, HttpError } from "../asyncHandler";
 import { clashStatus, cocGet, enc, normalizeClanTag } from "../services/clashApi";
 import { buildOverview } from "../services/clashOverview";
+import { buildRoster } from "../services/clashRoster";
 import {
   mapCapital,
   mapClanSummary,
@@ -107,6 +108,30 @@ router.get(
         war: war.status === "fulfilled" ? war.value : null,
         cwl,
         goldPass: goldPass.status === "fulfilled" ? goldPass.value : null,
+        unavailable,
+      })
+    );
+  })
+);
+
+// GET /api/clash/clans/:tag/roster - members with donations + attacks in the current war and latest raid weekend
+router.get(
+  "/clans/:tag/roster",
+  asyncHandler(async (req, res) => {
+    const tag = clanTagOf(req);
+    const clan = await getClan(tag);
+    const [raids, war] = await Promise.allSettled([getRaidSeasons(tag, 1), cocGet<RawWar>(`/clans/${enc(tag)}/currentwar`, TTL.war)]);
+
+    const unavailable: string[] = [];
+    const notFound = (r: PromiseRejectedResult) => r.reason instanceof HttpError && r.reason.status === 404;
+    if (raids.status === "rejected" && !notFound(raids)) unavailable.push("raid");
+    if (war.status === "rejected" && !notFound(war)) unavailable.push("war");
+
+    res.json(
+      buildRoster({
+        clan,
+        war: war.status === "fulfilled" ? war.value : null,
+        raid: raids.status === "fulfilled" ? (raids.value[0] ?? null) : null,
         unavailable,
       })
     );

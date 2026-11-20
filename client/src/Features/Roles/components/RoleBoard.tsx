@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import type { Member, Role } from "../../Members/types";
+import type { Role, RoleMember } from "../types";
 
 interface Props {
-  members: Member[];
+  members: RoleMember[];
   readyTags: Set<string>;
   reviewTags: Set<string>;
 }
@@ -17,7 +17,7 @@ const COLUMNS: { role: Role; title: string; hint: string }[] = [
 
 export default function RoleBoard({ members, readyTags, reviewTags }: Props) {
   const byRole = useMemo(() => {
-    const map = new Map<Role, Member[]>();
+    const map = new Map<Role, RoleMember[]>();
     for (const m of members) {
       const list = map.get(m.role);
       if (list) list.push(m);
