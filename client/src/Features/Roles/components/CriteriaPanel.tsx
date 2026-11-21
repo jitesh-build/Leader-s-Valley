@@ -37,7 +37,7 @@ interface Props {
 
 function FieldRow({ f, value, onChange }: { f: Field; value: number; onChange: (v: number) => void }) {
   return (
-    <label className="flex items-center justify-between gap-3 text-xs">
+    <label className="flex items-center justify-between gap-3 rounded-lg bg-panel px-3 py-2 text-xs">
       <span className="text-muted2">{f.label}</span>
       <span className="flex shrink-0 items-center gap-1.5">
         <input
@@ -55,34 +55,32 @@ function FieldRow({ f, value, onChange }: { f: Field; value: number; onChange: (
   );
 }
 
+/** The thresholds behind the suggestions. Saved in this browser. */
 export default function CriteriaPanel({ criteria, onChange, onReset }: Props) {
   return (
-    <section className="rounded-xl border border-line bg-card p-6">
-      <div className="text-[11px] font-semibold tracking-[0.14em] text-gold-dim">LEADER'S CALL</div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <h2 className="font-display text-[26px] font-bold text-white">Criteria</h2>
-        <button onClick={onReset} className="flex items-center gap-1.5 text-xs text-muted hover:text-white">
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-muted">
+          War participation, clan games and time in clan need history the game doesn't keep, so they're skipped for now. Your settings are ready for when they work.
+        </p>
+        <button type="button" onClick={onReset} className="flex shrink-0 items-center gap-1.5 text-xs text-muted hover:text-white">
           <RotateCcw size={12} /> Reset
         </button>
       </div>
 
-      <p className="mt-1 text-xs text-muted">
-        War participation, clan games and time in clan need history the game doesn't keep, so they're skipped for now.
-      </p>
-
-      <div className="mt-4 text-[10px] font-semibold tracking-[0.14em] text-muted">TO BE PROMOTED — ALL CHECKS WITH DATA MUST PASS</div>
-      <div className="mt-3 space-y-2.5">
+      <div className="mt-5 text-[10px] font-semibold tracking-[0.14em] text-muted">TO BE PROMOTED — ALL CHECKS WITH DATA MUST PASS</div>
+      <div className="mt-2.5 space-y-1.5">
         {PROMOTION.map((f) => (
           <FieldRow key={f.key} f={f} value={criteria[f.key]} onChange={(v) => onChange(f.key, v)} />
         ))}
       </div>
 
       <div className="mt-6 text-[10px] font-semibold tracking-[0.14em] text-muted">REVIEW AN ELDER / CO-LEADER — ANY ONE TRIGGERS</div>
-      <div className="mt-3 space-y-2.5">
+      <div className="mt-2.5 space-y-1.5">
         {REVIEW.map((f) => (
           <FieldRow key={f.key} f={f} value={criteria[f.key]} onChange={(v) => onChange(f.key, v)} />
         ))}
       </div>
-    </section>
+    </div>
   );
 }
