@@ -99,3 +99,4 @@ export function CheckStrip({ statuses }: { statuses: CriterionStatus[] }) {
     </div>
   );
 }
+

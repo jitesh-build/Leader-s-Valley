@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { formatNumber } from "../../Members/format";
 import type { Member } from "../../Members/types";
 
-type Mode = "weekend" | "lifetime";
+type Mode = "weekend" | "total";
 
 export default function TopLootersPanel({ members }: { members: Member[] }) {
   const [mode, setMode] = useState<Mode>("weekend");
 
   const rows = useMemo(() => {
-    const value = (m: Member): number => (mode === "weekend" ? m.capital.goldLooted : m.capital.goldContributedTotal);
+    const value = (m: Member): number => (mode === "weekend" ? (m.capital.raid?.looted ?? 0) : m.capital.lootedTracked);
     return [...members]
       .sort((a, b) => value(b) - value(a))
       .slice(0, 8)
@@ -16,17 +16,18 @@ export default function TopLootersPanel({ members }: { members: Member[] }) {
   }, [members, mode]);
 
   const top = rows[0]?.value || 1;
+  const weekends = members[0]?.capital.weekendsTracked ?? 0;
 
   return (
     <section className="rounded-xl border border-line bg-card p-6">
       <div className="text-[11px] font-semibold tracking-[0.14em] text-gold-dim">LEADERBOARD</div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-[26px] font-bold text-white">Top contributors</h2>
+        <h2 className="font-display text-[26px] font-bold text-white">Top raiders</h2>
         <div className="flex overflow-hidden rounded-lg border border-line text-[11px] font-semibold" role="group" aria-label="Leaderboard type">
           {(
             [
               ["weekend", "This weekend"],
-              ["lifetime", "Lifetime"],
+              ["total", `Last ${weekends || 0} weekends`],
             ] as const
           ).map(([id, label], i) => (
             <button
@@ -41,7 +42,7 @@ export default function TopLootersPanel({ members }: { members: Member[] }) {
           ))}
         </div>
       </div>
-      <p className="mt-1 text-xs text-muted">{mode === "weekend" ? "Capital gold looted in the current raid weekend." : "Capital gold contributed to the capital, all time."}</p>
+      <p className="mt-1 text-xs text-muted">{mode === "weekend" ? "Capital gold looted in the latest raid weekend." : `Capital gold looted over the last ${weekends} raid weekends.`}</p>
 
       <ol className="mt-5 space-y-3">
         {rows.map(({ m, value }, i) => (

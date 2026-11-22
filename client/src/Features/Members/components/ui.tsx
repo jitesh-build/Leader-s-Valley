@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { Star } from "lucide-react";
 import { RoleChip, TownHall } from "../../Roles/components/ui";
 import type { CwlRound, Member } from "../types";
@@ -15,6 +16,11 @@ export function MemberCell({ member }: { member: Member }) {
       </div>
     </div>
   );
+}
+
+/** Small role label (Leader / Co-leader / Elder). Same look as RoleChip; takes whatever role type RoleChip takes. */
+export function RoleBadge({ role }: { role: ComponentProps<typeof RoleChip>["role"] }) {
+  return <RoleChip role={role} />;
 }
 
 export function Dash() {
