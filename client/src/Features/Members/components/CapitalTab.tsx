@@ -1,52 +1,73 @@
+import { Pill } from "../../Roles/components/ui";
 import DataTable, { type Column } from "./DataTable";
-import { BreakBadge, Frac, MemberCell, RuleBreakList } from "./ui";
+import { Dash, Frac, MemberCell } from "./ui";
 import { formatNumber } from "../format";
 import type { Member } from "../types";
 
-export default function CapitalTab({ rows }: { rows: Member[] }) {
+interface Props {
+  rows: Member[];
+  /** The latest raid weekend is over, so unused attacks count as missed. */
+  weekendEnded: boolean;
+  weekendsTracked: number;
+  onOpen: (member: Member) => void;
+}
+
+export default function CapitalTab({ rows, weekendEnded, weekendsTracked, onOpen }: Props) {
   const columns: Column<Member>[] = [
     { id: "member", header: "Member", firstSort: "asc", sortValue: (m) => m.name.toLowerCase(), cell: (m) => <MemberCell member={m} /> },
     {
       id: "attacks",
       header: "Raid attacks",
       align: "right",
-      sortValue: (m) => m.capital.attackLimit - m.capital.attacksUsed,
-      cell: (m) => <Frac used={m.capital.attacksUsed} total={m.capital.attackLimit} />,
+      sortValue: (m) => (m.capital.raid ? m.capital.raid.attackLimit - m.capital.raid.attacksUsed : -1),
+      cell: (m) => (m.capital.raid ? <Frac used={m.capital.raid.attacksUsed} total={m.capital.raid.attackLimit} final={weekendEnded} /> : <Dash />),
     },
-    { id: "looted", header: "Gold looted", align: "right", sortValue: (m) => m.capital.goldLooted, cell: (m) => <span className="font-semibold text-white">{formatNumber(m.capital.goldLooted)}</span> },
+    {
+      id: "looted",
+      header: "Gold looted",
+      align: "right",
+      sortValue: (m) => m.capital.raid?.looted ?? -1,
+      cell: (m) => (m.capital.raid ? <span className="font-semibold text-white">{formatNumber(m.capital.raid.looted)}</span> : <Dash />),
+    },
     {
       id: "avg",
       header: "Per attack",
       align: "right",
-      sortValue: (m) => (m.capital.attacksUsed ? m.capital.goldLooted / m.capital.attacksUsed : 0),
-      cell: (m) => <span className="text-muted2">{m.capital.attacksUsed ? formatNumber(Math.round(m.capital.goldLooted / m.capital.attacksUsed)) : "—"}</span>,
+      sortValue: (m) => (m.capital.raid?.attacksUsed ? m.capital.raid.looted / m.capital.raid.attacksUsed : -1),
+      cell: (m) => (m.capital.raid?.attacksUsed ? <span className="text-muted2">{formatNumber(Math.round(m.capital.raid.looted / m.capital.raid.attacksUsed))}</span> : <Dash />),
     },
     {
       id: "weekends",
-      header: "Weekends",
+      header: `Last ${weekendsTracked || 0} weekends`,
       align: "right",
-      sortValue: (m) => m.capital.raidsParticipated,
+      sortValue: (m) => m.capital.weekendsParticipated,
       cell: (m) => (
         <span>
-          <span className="text-white">{m.capital.raidsParticipated}</span>
-          <span className="text-muted">/{m.capital.raidsEligible}</span>
+          <span className="text-white">{m.capital.weekendsParticipated}</span>
+          <span className="text-muted">/{m.capital.weekendsTracked}</span>
         </span>
       ),
     },
     {
-      id: "contrib",
-      header: "Gold contributed",
+      id: "total",
+      header: "Gold (all tracked)",
       align: "right",
-      sortValue: (m) => m.capital.goldContributedTotal,
-      cell: (m) => <span className="font-semibold text-gold">{formatNumber(m.capital.goldContributedTotal)}</span>,
+      sortValue: (m) => m.capital.lootedTracked,
+      cell: (m) => <span className="font-semibold text-gold">{formatNumber(m.capital.lootedTracked)}</span>,
     },
     {
-      id: "top",
-      header: "Top district",
-      sortValue: (m) => m.capital.contributions[0]?.district ?? "",
-      cell: (m) => <span className="text-muted2">{m.capital.contributions[0]?.district ?? "—"}</span>,
+      id: "status",
+      header: "Status",
+      align: "right",
+      sortValue: (m) => (m.capital.raid ? m.capital.raid.attackLimit - m.capital.raid.attacksUsed : -1),
+      cell: (m) => {
+        const r = m.capital.raid;
+        if (!r) return <Pill tone="muted">NOT LISTED</Pill>;
+        const left = Math.max(0, r.attackLimit - r.attacksUsed);
+        if (left === 0) return <Pill tone="green">DONE</Pill>;
+        return weekendEnded ? <Pill tone="red">MISSED {left}</Pill> : <Pill tone="amber">{left} LEFT</Pill>;
+      },
     },
-    { id: "breaks", header: "Rule breaks", align: "right", sortValue: (m) => m.capital.ruleBreaks.length, cell: (m) => <BreakBadge count={m.capital.ruleBreaks.length} /> },
   ];
 
   return (
@@ -54,38 +75,10 @@ export default function CapitalTab({ rows }: { rows: Member[] }) {
       rows={rows}
       columns={columns}
       rowKey={(m) => m.tag}
-      defaultSort={{ id: "contrib", dir: "desc" }}
-      minWidth={1000}
-      renderExpanded={(m) => {
-        const total = m.capital.goldContributedTotal || 1;
-        return (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <div className="text-[10px] font-semibold tracking-[0.14em] text-muted">CAPITAL GOLD CONTRIBUTED BY DISTRICT</div>
-              {m.capital.contributions.length === 0 ? (
-                <p className="mt-2 text-xs text-muted">No contributions recorded.</p>
-              ) : (
-                <ul className="mt-3 space-y-2.5">
-                  {m.capital.contributions.map((c) => (
-                    <li key={c.district} className="text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted2">{c.district}</span>
-                        <span className="font-semibold text-white">
-                          {formatNumber(c.amount)} <span className="font-normal text-muted">· {Math.round((c.amount / total) * 100)}%</span>
-                        </span>
-                      </div>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
-                        <div className="h-full rounded-full bg-gold" style={{ width: `${(c.amount / total) * 100}%` }} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <RuleBreakList breaks={m.capital.ruleBreaks} />
-          </div>
-        );
-      }}
+      defaultSort={{ id: "looted", dir: "desc" }}
+      minWidth={950}
+      onOpen={onOpen}
+      openLabel={(m) => `Open ${m.name}`}
     />
   );
 }

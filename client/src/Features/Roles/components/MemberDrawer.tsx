@@ -56,7 +56,7 @@ export default function MemberDrawer({ member: m, criteria, planned, onClose, on
         role="dialog"
         aria-modal="true"
         aria-label={`${m.name} details`}
-        className="h-full w-[min(460px,100vw)] overflow-y-auto border-l border-line bg-card p-6 shadow-2xl"
+        className="h-full w-[min(460px,100vw)] overflow-y-auto border-l border-line bg-black/90 p-6 shadow-2xl"
       >
         <div className="flex items-start gap-4">
           <TownHall level={m.townHallLevel} size={64} />

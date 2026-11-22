@@ -4,6 +4,7 @@ import type {
   RawGoldPass,
   RawLeagueGroup,
   RawMember,
+  RawRaidLogEntry,
   RawRaidSeason,
   RawWar,
   RawWarClan,
@@ -95,7 +96,22 @@ export function mapRoles(c: RawClan) {
   };
 }
 
+const mapRaidEnemy = (side: "attacker" | "defender") => (e: RawRaidLogEntry) => ({
+  name: e[side]?.name ?? "Unknown clan",
+  level: e[side]?.level ?? null,
+  districtCount: e.districtCount ?? 0,
+  districtsDestroyed: e.districtsDestroyed ?? 0,
+  attackCount: e.attackCount ?? 0,
+});
+
 export function mapRaidSeason(s: RawRaidSeason) {
+  const members = (s.members ?? []).map((m) => ({
+    tag: m.tag,
+    name: m.name,
+    attacks: m.attacks ?? 0,
+    attackLimit: (m.attackLimit ?? 0) + (m.bonusAttackLimit ?? 0),
+    looted: m.capitalResourcesLooted ?? 0,
+  }));
   return {
     state: s.state ?? null,
     startTime: parseCocTime(s.startTime),
@@ -106,13 +122,11 @@ export function mapRaidSeason(s: RawRaidSeason) {
     districtsDestroyed: s.enemyDistrictsDestroyed ?? 0,
     offensiveReward: s.offensiveReward ?? 0,
     defensiveReward: s.defensiveReward ?? 0,
-    members: (s.members ?? []).map((m) => ({
-      tag: m.tag,
-      name: m.name,
-      attacks: m.attacks ?? 0,
-      attackLimit: (m.attackLimit ?? 0) + (m.bonusAttackLimit ?? 0),
-      looted: m.capitalResourcesLooted ?? 0,
-    })),
+    /** Sum of every member's attack limit (the API has no weekend total). */
+    attackLimit: members.reduce((sum, m) => sum + m.attackLimit, 0),
+    attackLog: (s.attackLog ?? []).map(mapRaidEnemy("defender")),
+    defenseLog: (s.defenseLog ?? []).map(mapRaidEnemy("attacker")),
+    members,
   };
 }
 
@@ -125,6 +139,8 @@ export function mapCapital(c: RawClan, seasons: RawRaidSeason[]) {
     capitalLeague: c.capitalLeague?.name ?? null,
     capitalPoints: c.clanCapitalPoints ?? null,
     raidSeasons: seasons.map(mapRaidSeason),
+    /** Current members, so people who left don't show up as raiders. */
+    clanMembers: (c.memberList ?? []).map((m) => ({ tag: m.tag, name: m.name })),
   };
 }
 

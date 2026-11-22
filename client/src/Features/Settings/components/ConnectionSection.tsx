@@ -133,10 +133,10 @@ export default function ConnectionSection() {
         <div>
           <div className="text-[10px] font-semibold tracking-[0.14em] text-muted">YOUR BACKEND</div>
           <dl className="mt-3 space-y-2 rounded-lg bg-panel px-4 py-3 text-xs">
-            <div className="flex justify-between gap-3">
+            {/* <div className="flex justify-between gap-3">
               <dt className="text-muted">Server address</dt>
               <dd className="truncate text-white">{BACKEND || "this site (/api)"}</dd>
-            </div>
+            </div> */}
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Tracked clan</dt>
               <dd className="truncate text-white">{overview ? `${overview.clan.name} · ${overview.clan.tag}` : (clanTag ?? "not connected")}</dd>
@@ -146,9 +146,9 @@ export default function ConnectionSection() {
               <dd className="text-white">{lastLoad ?? "—"}</dd>
             </div>
           </dl>
-          <p className="mt-2 text-[11px] text-muted">
+          {/* <p className="mt-2 text-[11px] text-muted">
             The server address comes from the <code className="text-muted2">VITE_API_URL</code> setting in your hosting dashboard, so it can't be edited here.
-          </p>
+          </p> */}
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => void runChecks()} disabled={running} className={ghostButton}>

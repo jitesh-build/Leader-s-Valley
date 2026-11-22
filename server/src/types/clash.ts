@@ -105,6 +105,15 @@ export interface RawLeagueGroup {
   rounds?: { warTags?: string[] }[];
 }
 
+/** One enemy capital in a raid weekend: `defender` in attackLog, `attacker` in defenseLog. */
+export interface RawRaidLogEntry {
+  attacker?: { tag?: string; name?: string; level?: number };
+  defender?: { tag?: string; name?: string; level?: number };
+  attackCount?: number;
+  districtCount?: number;
+  districtsDestroyed?: number;
+}
+
 export interface RawRaidSeason {
   /** "ongoing" | "ended" */
   state?: string;
@@ -116,6 +125,10 @@ export interface RawRaidSeason {
   enemyDistrictsDestroyed?: number;
   offensiveReward?: number;
   defensiveReward?: number;
+  /** Enemy capitals we raided. */
+  attackLog?: RawRaidLogEntry[];
+  /** Clans that raided us. */
+  defenseLog?: RawRaidLogEntry[];
   members?: {
     tag: string;
     name: string;

@@ -194,6 +194,137 @@ export interface ApiStatus {
   allowedClanCount: number;
 }
 
+//CODE UPDATE START
+// ---- Clan Capital (GET /api/clash/clans/:tag/capital?seasons=N) ----
+
+export interface ApiCapitalDistrict {
+  id: number;
+  name: string;
+  /** The district hall level (for "Capital Peak" this is the Capital Hall level). */
+  level: number;
+}
+
+/** One clan member's result in one raid weekend. */
+export interface ApiRaidMember {
+  tag: string;
+  name: string;
+  attacks: number;
+  /** Base + bonus attacks. */
+  attackLimit: number;
+  /** Capital gold looted. */
+  looted: number;
+}
+
+/** An enemy capital we raided (attackLog) or a clan that raided us (defenseLog). */
+export interface ApiRaidEnemy {
+  name: string;
+  level: number | null;
+  districtCount: number;
+  districtsDestroyed: number;
+  attackCount: number;
+}
+
+/** One raid weekend. */
+export interface ApiRaidSeason {
+  /** "ongoing" | "ended" */
+  state: string;
+  /** ISO 8601 (the backend converts the game's "20240301T070000.000Z" format). */
+  startTime: string | null;
+  endTime: string | null;
+  totalLoot: number;
+  totalAttacks: number;
+  /** Sum of every member's attack limit. */
+  attackLimit: number;
+  districtsDestroyed: number;
+  offensiveReward: number;
+  defensiveReward: number;
+  attackLog: ApiRaidEnemy[];
+  defenseLog: ApiRaidEnemy[];
+  members: ApiRaidMember[];
+}
+
+export interface ApiCapital {
+  /** null = the clan hasn't unlocked the Clan Capital. */
+  capitalHallLevel: number | null;
+  districts: ApiCapitalDistrict[];
+  /** e.g. "Crystal League II" (null when unranked) */
+  capitalLeague: string | null;
+  capitalPoints: number | null;
+  /** Newest first. */
+  raidSeasons: ApiRaidSeason[];
+  /** Current clan members (so people who left don't show up as raiders). */
+  clanMembers: { tag: string; name: string }[];
+}
+
+// ---- Members page (GET /api/clash/clans/:tag/members-report) ----
+
+export interface ApiReportMember {
+  tag: string;
+  name: string;
+  role: "leader" | "coLeader" | "elder" | "member";
+  townHallLevel: number | null;
+  trophies: number | null;
+  clanRank: number | null;
+  donations: number;
+  donationsReceived: number;
+}
+
+export interface ApiReportAttack {
+  stars: number;
+  destructionPercentage: number;
+}
+
+export interface ApiReportWar {
+  state: string;
+  teamSize: number;
+  attacksPerMember: number;
+  startTime: string | null;
+  endTime: string | null;
+  opponent: { name: string | null; tag: string | null };
+  members: {
+    tag: string;
+    mapPosition: number;
+    attacks: (ApiReportAttack & { order: number; defenderPosition: number | null })[];
+    opponentAttacks: number;
+    bestOpponentAttack: ApiReportAttack | null;
+  }[];
+}
+
+export interface ApiReportCwlRound {
+  round: number;
+  /** null = we couldn't find our war in this round. */
+  state: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  opponent: { name: string | null; tag: string | null } | null;
+  members: { tag: string; attacks: ApiReportAttack[] }[];
+}
+
+export interface ApiReportCwl {
+  season: string | null;
+  state: string | null;
+  /** Tags of everyone registered for this CWL. */
+  registered: string[];
+  roundsTotal: number;
+  rounds: ApiReportCwlRound[];
+}
+
+export interface ApiMembersReport {
+  clanTag: string;
+  fetchedAt: string;
+  members: ApiReportMember[];
+  /** null = no regular war right now. */
+  war: ApiReportWar | null;
+  /** null = no CWL group. */
+  cwl: ApiReportCwl | null;
+  /** Recent raid weekends, newest first (members only — no logs). */
+  raids: { state: string | null; startTime: string | null; endTime: string | null; totalLoot: number; members: ApiRaidMember[] }[];
+  /** Parts that could not be loaded: "war", "cwl", "raid". */
+  unavailable: string[];
+}
+
+//CODE UPDATE END
+
 const tagPath = (tag: string): string => `/clans/${encodeURIComponent(tag)}`;
 
 export const clashApi = {
@@ -209,4 +340,9 @@ export const clashApi = {
   getCurrentWar: (tag: string, signal?: AbortSignal) => request<ApiWarResponse>(`${tagPath(tag)}/war`, signal),
   /** The clan's war in the newest Clan War League round. */
   getCwlCurrent: (tag: string, signal?: AbortSignal) => request<ApiCwlCurrent>(`${tagPath(tag)}/cwl/current`, signal),
+  /** Capital districts + league and the last `seasons` raid weekends (newest first). */
+  getCapital: (tag: string, seasons: number, signal?: AbortSignal) =>
+    request<ApiCapital>(`${tagPath(tag)}/capital?limit=${encodeURIComponent(String(seasons))}`, signal),
+  /** Everything the Members page needs: roster, current war, CWL rounds, recent raid weekends. */
+  getMembersReport: (tag: string, signal?: AbortSignal) => request<ApiMembersReport>(`${tagPath(tag)}/members-report`, signal),
 };

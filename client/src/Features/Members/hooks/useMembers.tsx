@@ -1,9 +1,21 @@
-import { mockMembers } from "../data/mockMembers";
+import { useMemo } from "react";
+import { useClanData } from "../../../lib/ClanDataProvider";
+import { useMembersReport } from "../../../lib/useMembersReport";
+import { adaptMembers } from "../adapter";
 
-/**
- * Single place the page gets its roster from. Today: sample data.
- * Later: fetch from your backend, adapt it to the `Member` type, return isSample: false.
- */
+/** Live members for the Members page: roster, current war, CWL rounds and raid weekends (refreshed every 2 minutes). */
 export function useMembers() {
-  return { members: mockMembers, isSample: true };
+  const { clanTag } = useClanData();
+  const polled = useMembersReport(clanTag);
+  const data = useMemo(() => (polled.data ? adaptMembers(polled.data) : null), [polled.data]);
+
+  return {
+    clanTag,
+    data,
+    loading: polled.loading,
+    refreshing: polled.refreshing,
+    error: polled.error,
+    updatedAt: polled.updatedAt,
+    refresh: polled.refresh,
+  };
 }

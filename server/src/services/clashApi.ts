@@ -83,8 +83,11 @@ async function fetchJson<T>(path: string, base: string, token: string): Promise<
   throw new HttpError(502, "Clash of Clans API error");
 }
 
-/** GET a path of the Clash of Clans API (path starts with "/", tags must already be URL-encoded). */
-export async function cocGet<T>(path: string, ttlMs = 30_000): Promise<T> {
+/**
+ * GET a path of the Clash of Clans API (path starts with "/", tags must already be URL-encoded).
+ * `ttl` is how long the response is reused: a number of ms, or a function of the response (e.g. cache finished wars longer).
+ */
+export async function cocGet<T>(path: string, ttl: number | ((data: T) => number) = 30_000): Promise<T> {
   const { base, token } = config();
   if (!token) throw new HttpError(503, "Live data is not configured on the server");
 
@@ -99,6 +102,7 @@ export async function cocGet<T>(path: string, ttlMs = 30_000): Promise<T> {
     try {
       const data = await fetchJson<T>(path, base, token);
       if (cache.size > 500) cache.clear();
+      const ttlMs = typeof ttl === "function" ? ttl(data) : ttl;
       cache.set(path, { data, freshUntil: Date.now() + ttlMs, storedAt: Date.now() });
       return data;
     } catch (err) {

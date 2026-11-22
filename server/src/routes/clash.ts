@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { asyncHandler, HttpError } from "../asyncHandler";
 import { clashStatus, cocGet, enc, normalizeClanTag } from "../services/clashApi";
 import { buildOverview } from "../services/clashOverview";
+import { buildMembersReport } from "../services/clashMembersReport";
 import { buildRoster } from "../services/clashRoster";
 import {
   mapCapital,
@@ -155,14 +156,61 @@ router.get(
   })
 );
 
-// GET /api/clash/clans/:tag/capital?limit=3 - capital hall, districts, capital league, recent raid weekends
+// GET /api/clash/clans/:tag/capital?limit=6 - capital hall, districts, capital league, recent raid weekends (newest first)
 router.get(
   "/clans/:tag/capital",
   asyncHandler(async (req, res) => {
     const tag = clanTagOf(req);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 3, 1), 10);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 10);
     const [clan, seasons] = await Promise.all([getClan(tag), getRaidSeasons(tag, limit)]);
     res.json(mapCapital(clan, seasons));
+  })
+);
+
+// GET /api/clash/clans/:tag/members-report - everything the Members page needs in ONE request:
+// roster, current war, every started CWL round, recent raid weekends. Failed parts go in `unavailable`.
+router.get(
+  "/clans/:tag/members-report",
+  asyncHandler(async (req, res) => {
+    const tag = clanTagOf(req);
+    const clan = await getClan(tag);
+    const [raids, war, group] = await Promise.allSettled([
+      getRaidSeasons(tag, 6),
+      cocGet<RawWar>(`/clans/${enc(tag)}/currentwar`, TTL.war),
+      getLeagueGroup(tag),
+    ]);
+
+    const unavailable = new Set<string>();
+    const notFound = (r: PromiseRejectedResult) => r.reason instanceof HttpError && r.reason.status === 404;
+    if (raids.status === "rejected" && !notFound(raids)) unavailable.add("raid");
+    if (war.status === "rejected" && !notFound(war)) unavailable.add("war");
+    if (group.status === "rejected" && !notFound(group)) unavailable.add("cwl");
+
+    let cwl: { group: RawLeagueGroup; wars: { round: number; war: RawWar | null }[] } | null = null;
+    if (group.status === "fulfilled") {
+      const started = mapLeagueGroup(group.value, tag).rounds.filter((r) => r.started);
+      const wars = await Promise.all(
+        started.map(async (r) => {
+          try {
+            return { round: r.round, war: (await loadRound(tag, r.warTags)).ours };
+          } catch {
+            unavailable.add("cwl");
+            return { round: r.round, war: null };
+          }
+        })
+      );
+      cwl = { group: group.value, wars };
+    }
+
+    res.json(
+      buildMembersReport({
+        clan,
+        war: war.status === "fulfilled" ? war.value : null,
+        cwl,
+        raids: raids.status === "fulfilled" ? raids.value : [],
+        unavailable: [...unavailable],
+      })
+    );
   })
 );
 

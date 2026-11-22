@@ -1,83 +1,119 @@
 /**
- * Where each piece of member data comes from (matters when you connect real data):
- *  [API]     official Clash of Clans API — /clans/{tag}/members and /players/{tag}
- *  [TRACKED] not available per-member from the API; your backend must record it by
- *            snapshotting wars / CWL rounds / raid weekends / clan games as they happen
- *  [LEADER]  entered by a leader inside this app
- * The mock data in data/mockMembers.ts follows these shapes exactly.
+ * Where each piece of member data comes from:
+ *  [API]    the official Clash of Clans API, read live (see server /api/clash/clans/:tag/members-report)
+ *  [LEADER] entered by a leader inside this app (notes, watch list, CWL bonus)
+ * NOT available from the game, so not shown: join date, war history across past wars,
+ * clan games points, lifetime capital gold. (They'd need the server to record data over time.)
  */
 
-export type Role = "leader" | "coLeader" | "admin" | "member"; // [API] "admin" = Elder
+export type Role = "leader" | "coLeader" | "admin" | "member"; // "admin" = Elder
 export type TabId = "war" | "cwl" | "capital" | "other";
 
-export interface RuleBreak {
-  id: string;
-  rule: string;
-  detail: string;
-  date: string;
-  severity: "minor" | "major";
+export interface WarAttack {
+  stars: number;
+  destruction: number;
+  /** The enemy base number that was hit. */
+  defenderPosition: number | null;
 }
 
-/** Clan war record across the wars your backend has tracked. [TRACKED] */
+/** The current / just-ended clan war. [API] */
 export interface WarStats {
-  warsParticipated: number;
-  warsEligible: number;
+  position: number;
   attacksUsed: number;
   attacksAvailable: number;
   stars: number;
   threeStars: number;
-  avgDestruction: number;
-  /** Stars earned in each of the last 6 wars (oldest first), null = didn't play. */
-  recentStars: (number | null)[];
-  ruleBreaks: RuleBreak[];
+  avgDestruction: number | null;
+  attacks: WarAttack[];
+  /** How many times the enemy attacked this player's base. */
+  timesAttacked: number;
+  /** The best result the enemy got against this player. */
+  bestAgainst: { stars: number; destruction: number } | null;
 }
 
-/** Latest CWL season. [TRACKED] — per-round stars come from the league war endpoints. */
+export interface CwlRound {
+  round: number;
+  /** Was in our lineup that round. */
+  played: boolean;
+  attacked: boolean;
+  stars: number | null;
+  destruction: number | null;
+  /** The round's war is over (so a missing attack is really missed). */
+  ended: boolean;
+}
+
+/** The current CWL season. [API] */
 export interface CwlStats {
-  inLineup: boolean;
-  seasonsPlayed: number;
+  /** Registered for this CWL. */
+  registered: boolean;
+  /** Rounds that have started. */
+  rounds: CwlRound[];
   roundsPlayed: number;
   attacksUsed: number;
+  /** Rounds in the lineup that ended without an attack. */
+  missedAttacks: number;
   starsThisSeason: number;
-  starsAllTime: number;
-  /** Who gets bonus medals is a leader decision, not in the API. [LEADER] */
-  bonusHolder: boolean;
-  bonusesReceived: number;
-  ruleBreaks: RuleBreak[];
+  avgDestruction: number | null;
 }
 
-/** Capital raids. attacks/looted come from /capitalraidseasons [API]; the per-district split of
- *  contributions is only visible in-game, so it's [LEADER]/[TRACKED]. */
+/** Capital raids over the weekends the server returned. [API] */
 export interface CapitalStats {
-  raidsParticipated: number;
-  raidsEligible: number;
-  attacksUsed: number;
-  attackLimit: number;
-  goldLooted: number;
-  goldContributedTotal: number;
-  contributions: { district: string; amount: number }[];
-  ruleBreaks: RuleBreak[];
-}
-
-/** Clan games etc. */
-export interface GamesStats {
-  /** Points in the most recent clan games (max 4000 per player). [TRACKED] */
-  clanGamesPoints: number;
-  /** Points in the 4 events before that, oldest first. [TRACKED] */
-  clanGamesHistory: number[];
+  /** Latest weekend. null = not listed for it. */
+  raid: { attacksUsed: number; attackLimit: number; looted: number } | null;
+  weekendsTracked: number;
+  weekendsParticipated: number;
+  /** Gold looted over all those weekends. */
+  lootedTracked: number;
+  /** Unused raid attacks in the latest weekend — only once it has ended. */
+  missedLastWeekend: number | null;
 }
 
 export interface Member {
-  tag: string; // [API]
-  name: string; // [API]
-  role: Role; // [API]
-  townHallLevel: number; // [API]
-  trophies: number; // [API]
-  donations: number; // [API] given this season
-  donationsReceived: number; // [API]
-  joinedAt: string; // [TRACKED] first time your backend saw them in the clan
-  war: WarStats;
+  tag: string;
+  name: string;
+  role: Role;
+  townHallLevel: number;
+  trophies: number;
+  clanRank: number | null;
+  /** Donated this season. */
+  donations: number;
+  donationsReceived: number;
+  /** null = not in the current war. */
+  war: WarStats | null;
   cwl: CwlStats;
   capital: CapitalStats;
-  games: GamesStats;
+}
+
+export interface WarMeta {
+  /** "preparation" | "inWar" | "warEnded" */
+  state: string;
+  opponent: string | null;
+  teamSize: number;
+  attacksPerMember: number;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface CwlMeta {
+  season: string | null;
+  state: string | null;
+  roundsStarted: number;
+  roundsTotal: number;
+  /** The newest round that has started. */
+  currentRound: { round: number; state: string | null; opponent: string | null } | null;
+}
+
+export interface RaidMeta {
+  state: string | null;
+  endTime: string | null;
+  weekendsTracked: number;
+}
+
+export interface MembersData {
+  members: Member[];
+  war: WarMeta | null;
+  cwl: CwlMeta | null;
+  raid: RaidMeta | null;
+  /** Parts the server couldn't load: "war" (private war log), "cwl", "raid". */
+  unavailable: string[];
 }
