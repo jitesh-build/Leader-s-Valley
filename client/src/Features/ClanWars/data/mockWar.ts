@@ -106,8 +106,8 @@ function buildWar(): War {
     preparationStartTime: new Date(START - 23 * HOUR).toISOString(),
     startTime: new Date(START).toISOString(),
     endTime: new Date(START + 24 * HOUR).toISOString(),
-    clan: { tag: "#2L8Y9J", name: "Dark Exiles", clanLevel: 18, members: clan, ...totals(clan, size) },
-    opponent: { tag: "#9QR8V2", name: "Nordic Ravens", clanLevel: 16, members: opp, ...totals(opp, size) },
+    clan: { tag: "#2L8Y9J", name: "Dark Exiles", badge: "", clanLevel: 18, members: clan, ...totals(clan, size) },
+    opponent: { tag: "#9QR8V2", name: "Nordic Ravens", badge: "", clanLevel: 16, members: opp, ...totals(opp, size) },
   };
 }
 
