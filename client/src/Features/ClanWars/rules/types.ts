@@ -4,10 +4,15 @@ export type Severity = "minor" | "major";
 export type RuleTypeId = "missedAttacks" | "mirror" | "minStars" | "noPunchUp" | "assignedBase";
 export type RuleParams = Record<string, number | string>;
 
+/** When a rule applies: during the preparation day or during the battle day (and after, for the final result). */
+export type RulePhase = "preparation" | "battle";
+
 export interface Rule {
   id: string;
   /** "manual" rules are free text that can't be auto-checked. */
   type: RuleTypeId | "manual";
+  /** Missing = "battle" (rules saved before phases existed). */
+  phase?: RulePhase;
   title: string;
   params: RuleParams;
   severity: Severity;
@@ -41,6 +46,8 @@ export interface EvalContext {
   /** Hours between war start and the given timestamp, or null if there is no timestamp. */
   hoursIntoWar: (iso?: string) => number | null;
   hoursLeft: number;
+  /** Hours the war has been running (counted from its start, stops at its end). 0 before it starts. */
+  hoursElapsed: number;
   enemyByTag: ReadonlyMap<string, WarMember>;
   assignments: Assignments;
 }

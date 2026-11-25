@@ -27,6 +27,7 @@ export function buildStats(o: ApiOverview | null): Stat[] {
     ];
   }
 
+  
   const { clan, members, capital, cwl } = o;
 
   // War win rate (needs the clan's war log to be public, otherwise the game hides the numbers)

@@ -50,6 +50,7 @@ export interface ApiWarAttack {
   stars: number;
   destructionPercentage: number;
   order: number;
+  observedAt?: string | null;
 }
 
 export interface ApiWarMember {

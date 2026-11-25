@@ -44,6 +44,26 @@ function Shell({ eyebrow, eyebrowClass, dot, title, timer, children, footer }: {
   );
 }
 
+function BadgeImage({ src, name, size = 46, fallback }: {
+  src?: string | null;
+  name: string;
+  size?: number;
+  fallback: React.ReactNode;
+}) {
+  if (!src) return <>{fallback}</>;
+  return (
+    <img
+      src={src}
+      alt={`${name} badge`}
+      width={size}
+      height={size}
+      loading="lazy"
+      className="object-contain drop-shadow"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 export default function WarCard({ overview, loading, warUnavailable, onOpenWarRoom }: Props) {
   const now = useNow(30_000);
   const war = overview?.war ?? null;
@@ -145,7 +165,12 @@ export default function WarCard({ overview, loading, warUnavailable, onOpenWarRo
       <div className="flex items-center justify-center border-y border-line px-6 py-12">
         <div className="flex flex-wrap items-center justify-center gap-10">
           <div className="flex flex-col items-center gap-1">
-            <ClanBadge initials={initialsOf(usName)} size={46} fill="#5a4518" textClass="text-gold" />
+            {/* <ClanBadge initials={initialsOf(usName)} size={46} fill="#5a4518" textClass="text-gold" /> */}
+            <BadgeImage
+  src={us.badge}
+  name={usName}
+  fallback={<ClanBadge initials={initialsOf(usName)} size={46} fill="#5a4518" textClass="text-gold" />}
+/>
             <div className="mt-2 max-w-[160px] truncate font-display text-base font-bold text-white">{usName}</div>
             <div className="text-[11px] text-muted">{us.attacks} attacks</div>
           </div>
@@ -166,7 +191,12 @@ export default function WarCard({ overview, loading, warUnavailable, onOpenWarRo
           </div>
 
           <div className="flex flex-col items-center gap-1">
-            <ClanBadge initials={initialsOf(themName)} size={46} fill="#6b2a28" textClass="text-red-200" />
+            {/* <ClanBadge initials={initialsOf(themName)} size={46} fill="#6b2a28" textClass="text-red-200" /> */}
+            <BadgeImage
+              src={them.badge}
+              name={themName}
+              fallback={<ClanBadge initials={initialsOf(themName)} size={46} fill="#6b2a28" textClass="text-red-200" />}
+/>
             <div className="mt-2 max-w-[160px] truncate font-display text-base font-bold text-white">{themName}</div>
             <div className="text-[11px] text-muted">{them.attacks} attacks</div>
           </div>

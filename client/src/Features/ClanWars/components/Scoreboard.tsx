@@ -3,6 +3,7 @@ import ClanBadge from "../../Home/components/Clanbadge";
 import { formatCountdown, initials } from "../format";
 import { useNow } from "../hooks/useNow";
 import type { War, WarState } from "../types";
+import BadgeImage from "../../Home/components/BadgeImage";
 
 interface Props {
   war: War;
@@ -30,7 +31,7 @@ export default function Scoreboard({ war }: Props) {
   // const totalStars = clan.stars + opponent.stars;
   // const share = totalStars === 0 ? 50 : (clan.stars / totalStars) * 100;
 
-  // console.log(clan)
+  console.log(clan)
 
   return (
     <div className="flex justify-center">
@@ -45,15 +46,20 @@ export default function Scoreboard({ war }: Props) {
       {clan.name}
     </span>
     <div className="flex items-center gap-1">
-      <ClanBadge initials={initials(clan.name)} size={46} fill="#5a4518" textClass="text-gold" />
-      <span
-        className="text-xl font-extrabold text-white"
-        style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}
-      >
-        vs
-      </span>
-      <ClanBadge initials={initials(opponent.name)} size={46} fill="#6b2a28" textClass="text-red-200" />
-    </div>
+  <BadgeImage
+    src={clan.badge}
+    name={clan.name}
+    fallback={<ClanBadge initials={initials(clan.name)} size={46} fill="#5a4518" textClass="text-gold" />}
+  />
+  <span className="text-xl font-extrabold text-white" style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" }}>
+    vs
+  </span>
+  <BadgeImage
+    src={opponent.badge}
+    name={opponent.name}
+    fallback={<ClanBadge initials={initials(opponent.name)} size={46} fill="#6b2a28" textClass="text-red-200" />}
+  />
+</div>
     <span
       className="truncate text-left text-2xl font-extrabold text-white"
       style={{ textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 0 #000" }}

@@ -39,6 +39,7 @@ export interface WarSide {
   name: string;
   clanLevel: number;
   /** Total attacks used by this side. */
+  badge: string | null;
   attacks: number;
   stars: number;
   destructionPercentage: number;

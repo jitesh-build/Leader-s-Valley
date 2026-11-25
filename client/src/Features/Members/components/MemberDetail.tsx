@@ -67,7 +67,7 @@ export default function MemberDetail({ member: m, data, violations, note, onNote
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/60" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-label={`${m.name} details`} className="h-full w-[min(480px,100vw)] overflow-y-auto border-l border-line bg-card p-6 shadow-2xl">
+      <aside role="dialog" aria-modal="true" aria-label={`${m.name} details`} className="h-full w-[min(480px,100vw)] overflow-y-auto border-l border-line bg-black/80 p-6 shadow-2xl">
         {/* header */}
         <div className="flex items-start gap-4">
           <TownHall level={m.townHallLevel} size={64} />

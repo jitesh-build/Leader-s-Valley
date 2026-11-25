@@ -6,6 +6,7 @@ import { clashStatus, cocGet, enc, normalizeClanTag } from "../services/clashApi
 import { buildOverview } from "../services/clashOverview";
 import { buildMembersReport } from "../services/clashMembersReport";
 import { buildRoster } from "../services/clashRoster";
+import { withAttackTimes } from "../services/attackTimes";
 import {
   mapCapital,
   mapClanSummary,
@@ -219,7 +220,8 @@ router.get(
   "/clans/:tag/war",
   asyncHandler(async (req, res) => {
     const tag = clanTagOf(req);
-    res.json(mapWar(await cocGet<RawWar>(`/clans/${enc(tag)}/currentwar`, TTL.war), tag));
+    const war = mapWar(await cocGet<RawWar>(`/clans/${enc(tag)}/currentwar`, TTL.war), tag);
+    res.json(await withAttackTimes(war, tag)); // adds observedAt to each attack
   })
 );
 
@@ -249,7 +251,7 @@ router.get(
       season: group.season,
       groupState: group.state,
       round: latest.round,
-      war: ours ? mapWar(ours, tag) : null,
+      war: ours ? await withAttackTimes(mapWar(ours, tag), tag) : null,
     });
   })
 );

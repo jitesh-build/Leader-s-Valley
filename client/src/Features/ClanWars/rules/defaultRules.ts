@@ -3,24 +3,37 @@ import type { Rule } from "./types";
 /** Starter rules a clan gets the first time they open the page. */
 export const DEFAULT_RULES: Rule[] = [
   {
+    id: "default-donate",
+    type: "manual",
+    phase: "preparation",
+    title: "Request and donate war troops before preparation ends",
+    params: {},
+    severity: "minor",
+    enabled: true,
+    note: "Not auto-checked — leaders verify this by hand.",
+  },
+  {
     id: "default-missed",
     type: "missedAttacks",
+    phase: "battle",
     title: "Use all of your attacks before the war ends",
-    params: { warnHoursLeft: 12 },
+    params: { warnHoursLeft: 1 },
     severity: "major",
     enabled: true,
   },
   {
     id: "default-mirror",
     type: "mirror",
+    phase: "battle",
     title: "Your first attack must hit within 2 ranks of your own",
-    params: { maxRankGap: 2, appliesTo: "first", windowHours: 0 },
+    params: { maxRankGap: 0, appliesTo: "all", windowHours: 0 },
     severity: "minor",
     enabled: true,
   },
   {
     id: "default-minstars",
     type: "minStars",
+    phase: "battle",
     title: "Your first attack must earn at least 2★",
     params: { minStars: 2, appliesTo: "first" },
     severity: "minor",
@@ -29,6 +42,7 @@ export const DEFAULT_RULES: Rule[] = [
   {
     id: "default-assigned",
     type: "assignedBase",
+    phase: "battle",
     title: "Only attack your assigned base(s)",
     params: {},
     severity: "minor",
@@ -37,18 +51,10 @@ export const DEFAULT_RULES: Rule[] = [
   {
     id: "default-nopunchup",
     type: "noPunchUp",
+    phase: "battle",
     title: "Don't attack above your own rank in the first 12h",
     params: { maxRanksAbove: 0, untilHour: 12 },
     severity: "minor",
     enabled: false,
-  },
-  {
-    id: "default-manual-donate",
-    type: "manual",
-    title: "Request and donate war troops before preparation ends",
-    params: {},
-    severity: "minor",
-    enabled: true,
-    note: "Not auto-checked — leaders verify this by hand.",
   },
 ];

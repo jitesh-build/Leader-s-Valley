@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { RULE_TYPES, RULE_TYPE_LIST } from "../rules/definitions";
 import { OUTLINE } from "./outline";
-import type { ParamDef, Rule, RuleParams, RuleTypeId, Severity } from "../rules/types";
+import type { ParamDef, Rule, RuleParams, RulePhase, RuleTypeId, Severity } from "../rules/types";
 
 interface Props {
   /** null/undefined = creating a new rule. */
@@ -12,6 +12,11 @@ interface Props {
 }
 
 type TypeChoice = RuleTypeId | "manual";
+
+const PHASE_CHOICES: { id: RulePhase; label: string }[] = [
+  { id: "preparation", label: "Preparation day" },
+  { id: "battle", label: "Battle day" },
+];
 
 const inputClass =
   "w-full rounded-lg border border-line bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 [color-scheme:dark] focus:border-gold/50 focus:outline-none";
@@ -44,6 +49,8 @@ export default function RuleEditor({ initial, onSave, onClose }: Props) {
   const [params, setParams] = useState<RuleParams>(initial?.params ?? RULE_TYPES.missedAttacks.defaults);
   const [severity, setSeverity] = useState<Severity>(initial?.severity ?? "minor");
   const [note, setNote] = useState(initial?.note ?? "");
+  // Only manual rules can pick a phase; the auto-checked rule types all work on battle day.
+  const [phase, setPhase] = useState<RulePhase>(initial?.phase ?? (initial?.type === "manual" ? "preparation" : "battle"));
   const [error, setError] = useState<string | null>(null);
 
   const def = type === "manual" ? null : RULE_TYPES[type];
@@ -82,6 +89,7 @@ export default function RuleEditor({ initial, onSave, onClose }: Props) {
     onSave({
       id: initial?.id ?? newId(),
       type,
+      phase: type === "manual" ? phase : "battle",
       title: trimmed,
       params: def ? cleanParams(def.params, params, def.defaults) : {},
       severity,
@@ -196,6 +204,28 @@ export default function RuleEditor({ initial, onSave, onClose }: Props) {
             <span className={labelClass}>DETAILS (OPTIONAL)</span>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className={inputClass} />
           </label>
+        )}
+
+        {type === "manual" ? (
+          <div className="mt-5">
+            <span className={labelClass}>APPLIES DURING</span>
+            <div className="flex gap-2">
+              {PHASE_CHOICES.map((p) => (
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={() => setPhase(p.id)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                    phase === p.id ? "border-gold/60 bg-gold/10 text-gold" : "border-line text-white/70 hover:text-white"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-5 text-[11px] text-white/60">Auto-checked rules are checked on battle day.</p>
         )}
 
         <div className="mt-5">

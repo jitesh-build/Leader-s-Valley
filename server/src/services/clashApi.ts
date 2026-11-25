@@ -21,6 +21,11 @@ function config() {
   };
 }
 
+/** Clans listed in ALLOWED_CLAN_TAGS (empty = no restriction). */
+export function allowedClanTags(): string[] {
+  return config().allowedClans;
+}
+
 export function clashStatus(): { configured: boolean; allowedClanCount: number } {
   const c = config();
   return { configured: c.token.length > 0, allowedClanCount: c.allowedClans.length };

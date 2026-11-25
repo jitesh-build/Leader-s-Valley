@@ -47,6 +47,22 @@ function pickAttacks(member: WarMember, appliesTo: string): { attack: WarAttack;
   return sorted;
 }
 
+/**
+ * Did this attack happen inside the first `win` hours of the war?
+ *  true  = yes · false = no · null = we can't tell.
+ * `win` of 0 means "whole war" (always true).
+ * With a timestamp we simply compare. Without one (the game gives no attack times and the server hasn't
+ * stamped it) we can still be sure while the war itself is no older than the window: every attack that
+ * exists must then be inside it. Once the war is older than the window and the time is unknown, we can't
+ * prove anything, so the attack is not flagged.
+ */
+function withinWindow(ctx: EvalContext, attack: WarAttack, win: number): boolean | null {
+  if (win <= 0) return true;
+  const h = ctx.hoursIntoWar(attack.observedAt);
+  if (h !== null) return h <= win;
+  return ctx.hoursElapsed <= win ? true : null;
+}
+
 const APPLIES_FIRST_ALL = [
   { value: "first", label: "First attack only" },
   { value: "all", label: "Every attack" },
@@ -106,7 +122,7 @@ export const RULE_TYPES: Record<RuleTypeId, RuleTypeDef> = {
         label: "Only during the first … hours",
         min: 0,
         max: 24,
-        help: "0 = whole war. Needs attack timestamps; attacks without one are skipped.",
+        help: "0 = whole war. If an attack's time is unknown it is still checked while the war is within this many hours old.",
       },
     ],
     defaults: { maxRankGap: 2, appliesTo: "first", windowHours: 0 },
@@ -123,10 +139,7 @@ export const RULE_TYPES: Record<RuleTypeId, RuleTypeDef> = {
       const out: Violation[] = [];
       for (const m of ctx.war.clan.members) {
         for (const { attack, index } of pickAttacks(m, str(rule.params, "appliesTo"))) {
-          if (win > 0) {
-            const h = ctx.hoursIntoWar(attack.observedAt);
-            if (h === null || h > win) continue;
-          }
+          if (withinWindow(ctx, attack, win) !== true) continue;
           const def = ctx.enemyByTag.get(attack.defenderTag);
           if (!def) continue;
           const gap = Math.abs(def.mapPosition - m.mapPosition);
@@ -195,7 +208,7 @@ export const RULE_TYPES: Record<RuleTypeId, RuleTypeDef> = {
         label: "Only during the first … hours",
         min: 0,
         max: 24,
-        help: "0 = whole war. Needs attack timestamps; attacks without one are skipped.",
+        help: "0 = whole war. If an attack's time is unknown it is still checked while the war is within this many hours old.",
       },
     ],
     defaults: { maxRanksAbove: 0, untilHour: 12 },
@@ -210,10 +223,7 @@ export const RULE_TYPES: Record<RuleTypeId, RuleTypeDef> = {
       const out: Violation[] = [];
       for (const m of ctx.war.clan.members) {
         for (const attack of m.attacks) {
-          if (until > 0) {
-            const h = ctx.hoursIntoWar(attack.observedAt);
-            if (h === null || h > until) continue;
-          }
+          if (withinWindow(ctx, attack, until) !== true) continue;
           const def = ctx.enemyByTag.get(attack.defenderTag);
           if (!def) continue;
           if (def.mapPosition < m.mapPosition - maxUp) {

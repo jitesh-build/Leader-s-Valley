@@ -14,6 +14,7 @@ import { useNow } from "./hooks/useNow";
 import { useRules } from "./hooks/useRules";
 import { useWarData } from "./hooks/useWarData";
 import { evaluateRules } from "./rules/engine";
+import { phaseOfWar, rulePhase } from "./rules/phase";
 import type { Assignments, Rule } from "./rules/types";
 
 /**
@@ -119,7 +120,11 @@ export default function ClanWarPage() {
     return { violatedMembers: violated.size, atRiskMembers: risk.size };
   }, [violations]);
 
-  const activeRuleCount = rules.filter((r) => r.enabled && r.type !== "manual").length;
+  // Which rules are being checked right now: preparation-day rules on prep day, battle-day rules after that.
+  const activePhase = war ? phaseOfWar(war.state) : null;
+  const activeRuleCount = rules.filter(
+    (r) => r.enabled && r.type !== "manual" && (activePhase === null || rulePhase(r) === activePhase)
+  ).length;
 
   const showClanForm = !demo && (clanTag === null || changingClan);
   const lastUpdated = live.updatedAt?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -186,6 +191,7 @@ export default function ClanWarPage() {
             <RulesPanel
               rules={rules}
               countByRule={countByRule}
+              activePhase={activePhase}
               onAdd={() => setEditor({ rule: null })}
               onEdit={(rule) => setEditor({ rule })}
               onToggle={toggleRule}

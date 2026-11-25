@@ -12,6 +12,7 @@ function adaptSide(s: ApiWarSide): WarSide {
     clanLevel: s.level ?? 0,
     attacks: s.attacks,
     stars: s.stars,
+    badge: s.badge,
     destructionPercentage: s.destructionPercentage,
     members: s.members.map(
       (m): WarMember => ({
